@@ -50,18 +50,18 @@ $Execute.location = New-Object System.Drawing.Point(20, 610)
 $Execute.Font = 'Microsoft Sans Serif,18,style=Bold'
 $Execute.ForeColor = "#ffffff"
 $Execute.Add_Click({
-    $AADTenantID = $AADTenantID.Text
-    $Office365Install = $InstallOffice365.Checked
+    [string]$AADTenantID = $AADTenantID.Text
+    [boolean]$Office365Install = $InstallOffice365.Checked
     $EmailCacheTime = $EmailCacheMonths.SelectedItem
     $CalendarSync = $CalendarSyncMode.SelectedItem
     $CalendarSyncMonths = $CalSyncTime.SelectedItem
-    $OneDriveInstall = $InstallOneDrive.Checked
-    $FSLogixInstall = $InstallFSLogix.Checked
-    $FSLogixVHDPath = $VHDPath.Text
-    $TeamsInstall = $InstallTeams.Checked
-    $EdgeInstall = $InstallEdge.Checked
-    $WindowsUpdateDisable = $DisableWU.Checked
-    $CleanupImage = $RunCleanMgr.Checked
+    [boolean]$OneDriveInstall = $InstallOneDrive.Checked
+    [boolean]$FSLogixInstall = $InstallFSLogix.Checked
+    [string]$FSLogixVHDPath = $VHDPath.Text
+    [boolean]$TeamsInstall = $InstallTeams.Checked
+    [boolean]$EdgeInstall = $InstallEdge.Checked
+    [boolean]$WindowsUpdateDisable = $DisableWU.Checked
+    [boolean]$CleanupImage = $RunCleanMgr.Checked
 
     $args = "-Office365Install $Office365Install -OneDriveInstall $OneDriveInstall -FSLogixInstall $FSLogixInstall -TeamsInstall $TeamsInstall -EdgeInstall $EdgeInstall -WindowsUpdateDisable $WindowsUpdateDisable -CleanupImage $CleanupImage"
     If ($AADTenantID -ne '') { $args = "$args -AADTenantID $AADTenantID" }
