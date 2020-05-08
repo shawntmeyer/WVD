@@ -21,7 +21,8 @@
    Script will also perform WVD specific and Azure generic image configurations per reference articles.
 #>
 
-Add-Type -AssemblyName System.Windows.Forms
+[void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
+[void] [System.Reflection.Assembly]::LoadWithPartialName("System.Drawing")
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $DropdownArraySyncMonths = @(
@@ -38,8 +39,9 @@ $DropdownArrayCalSyncMode = @(
 
 $WVDGoldenImagePrep = New-Object system.Windows.Forms.Form
 $WVDGoldenImagePrep.ClientSize = '700,800'
-$WVDGoldenImagePrep.text = "Form"
+$WVDGoldenImagePrep.text = "WVD Image Preparation"
 $WVDGoldenImagePrep.TopMost = $false
+$WVDGoldenImagePrep.StartPosition = "CenterScreen"
 
 $Execute = New-Object system.Windows.Forms.Button
 $Execute.BackColor = "#417505"
@@ -60,7 +62,8 @@ $Execute.Add_Click({
     }
     If ($InstallOneDrive.Checked)
     {
-        $args = "$args -OneDriveInstall"
+        If ($args -ne '') { $args = "$args -OneDriveInstall" }
+        Else { $args = "-OneDriveInstall" }
         If ($AADTenantID -ne '')
         {
             $args = "$args -AADTenantID $AADTenantID"
@@ -69,20 +72,37 @@ $Execute.Add_Click({
     }
     If ($InstallFSLogix.Checked)
     {
-        $args = "$args -FSLogixInstall"
+        If ($args -ne '') { $args = "$args -FSLogixInstall" }
+        Else { $args = "-FSLogixInstall" }
         If ($FSLogixVHDPath -ne '')
         {
             $args = "$args -FSLogixVHDPath $FSLogixVHDPath"
         }
     }
-    If ($InstallTeams.Checked) { $args = "$args -TeamsInstall" }
-    If ($InstallEdge.Checked) { $args = "$args -EdgeInstall" }
-    If ($DisableWU.Checked) { $args = "$args -WindowsUpdateDisable" }
-    If ($RunCleanMgr.Checked) { $args = "$args -CleanupImage" }
+    If ($InstallTeams.Checked)
+    {
+        If ($args -ne '') { $args = "$args -TeamsInstall" }
+        Else { $args = "-TeamsInstall" }
+    }
+    If ($InstallEdge.Checked)
+    {
+        If ($args -ne '') { $args = "$args -EdgeInstall" }
+        Else { $args = "-EdgeInstall" }
+    }
+    If ($DisableWU.Checked)
+    {
+        If ($args -ne '') { $args = "$args -WindowsUpdateDisable" }
+        Else { $args = "-WindowsUpdateDisable" }
+    }
+    If ($RunCleanMgr.Checked)
+    {
+        If ($args -ne '') { $args = "$args -CleanupImage" }
+        Else { $args = "-CleanupImage" }
+    }
     
     $command = "$PSScriptRoot\Prepare-WVDImage.ps1"
     $WVDGoldenImagePrep.Close()
-    & $command $args
+    Invoke-Expression $command $args
 })
 
 $ScriptTitle = New-Object system.Windows.Forms.Label
@@ -259,6 +279,4 @@ ForEach ($Item in $DropdownArrayCalSyncMode) {
 
 $WVDGoldenImagePrep.controls.AddRange(@($Execute, $ScriptTitle, $CalendarSyncMode, $EmailCacheMonths, $CalSyncTime, $VHDPath, $AADTenantID, $InstallOffice365, $InstallFSLogix, $InstallOneDrive, $DisableWU, $InstallTeams, $InstallEdge, $RunCleanMgr, $LabelVHDLocation, $LabelAADTenant, $labelEmailCache, $labelCalSyncType, $labelCalSyncTime))
 
-$WVDGoldenImagePrep.AcceptButton = $Execute
-
-$WVDGoldenImagePrep.ShowDialog()
+[void]$WVDGoldenImagePrep.ShowDialog()
