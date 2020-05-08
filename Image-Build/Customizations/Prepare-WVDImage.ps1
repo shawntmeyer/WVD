@@ -24,7 +24,7 @@ Param
     [string]$AADTenantID,
 
     #install Office 365
-    [switch]$Office365Install=$true,
+    [switch]$Office365Install,
 
     # Outlook Email Cached Sync Time, Change to blank if you don't want to configure.
     [ValidateSet('3 days', '1 week', '2 weeks', '1 month', '3 months', '6 months', '12 months', '24 months', '36 months', '60 months', 'All')]
@@ -39,25 +39,25 @@ Param
     [string]$CalendarSyncMonths=1,
 
     # Install OneDrive per-machine
-    [switch]$OneDriveInstall=$true,
+    [switch]$OneDriveInstall,
 
     # Install FSLogix Agent
-    [switch]$FSLogixInstall=$true,
+    [switch]$FSLogixInstall,
 
     #UNC Paths to FSLogix Profile Disks. Enclose each value in double quotes seperated by a ',' (ex: "\\primary\fslogix","\\failover\fslogix")
     $FSLogixVHDPath,
 
     #Install Microsoft Teams in the Per-Machine configuration. Update the $TeamsURL variable to point to the latest version as needed.
-    [switch]$TeamsInstall=$false,
+    [switch]$TeamsInstall,
 
     #Install Microsoft Edge Chromium. Update $EdgeURL variable to point to latest version as needed.
-    [switch]$EdgeInstall=$true,
+    [switch]$EdgeInstall,
 
     #Disable Windows Update
-    [switch]$WindowsUpdateDisable=$True,
+    [switch]$WindowsUpdateDisable,
 
     #Run Disk Cleanup at end. Will require a reboot before sysprep.
-    [switch]$CleanupImage=$True
+    [switch]$CleanupImage
 )
 
 #region Variables
