@@ -52,21 +52,22 @@ $Execute.location = New-Object System.Drawing.Point(20, 610)
 $Execute.Font = 'Microsoft Sans Serif,18,style=Bold'
 $Execute.ForeColor = "#ffffff"
 $Execute.Add_Click({
-
+    $args = ''
     If ($InstallOffice365.Checked)
     {
-        $EmailCacheTime = $EmailCacheMonths.SelectedItem
-        $CalendarSync = $CalendarSyncMode.SelectedItem
-        $CalendarSyncMonths = $CalSyncTime.SelectedItem
-        $args = "-Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths"
+        $EmailCacheTime = $EmailCacheMonths.text
+        $CalendarSync = $CalendarSyncMode.text
+        $CalendarSyncMonths = $CalSyncTime.text
+        $args = "-Office365Install -EmailCacheTime `"$EmailCacheTime`" -CalendarSync `"$CalendarSync`" -CalendarSyncMonths `"$CalendarSyncMonths`""
     }
     If ($InstallOneDrive.Checked)
     {
         If ($args -ne '') { $args = "$args -OneDriveInstall" }
         Else { $args = "-OneDriveInstall" }
-        If ($AADTenantID -ne '')
+        $TenantID = $AADTenantID.text
+        If ($TenantID -ne '' -and $TenantID -ne $null)
         {
-            $args = "$args -AADTenantID $AADTenantID"
+            $args = "$args -AADTenantID `"$TenantID`""
         }
 
     }
@@ -74,9 +75,10 @@ $Execute.Add_Click({
     {
         If ($args -ne '') { $args = "$args -FSLogixInstall" }
         Else { $args = "-FSLogixInstall" }
-        If ($FSLogixVHDPath -ne '')
+        $FSLogixVHDPath = $VHDPath.text
+        If ($FSLogixVHDPath -ne '' -and $FSLogixVHDPath -ne $null)
         {
-            $args = "$args -FSLogixVHDPath $FSLogixVHDPath"
+            $args = "$args -FSLogixVHDPath `"$FSLogixVHDPath`""
         }
     }
     If ($InstallTeams.Checked)
@@ -102,7 +104,8 @@ $Execute.Add_Click({
     
     $command = "$PSScriptRoot\Prepare-WVDImage.ps1"
     $WVDGoldenImagePrep.Close()
-    Invoke-Expression $command $args
+    Write-Host $command $args
+    &$command $args
 })
 
 $ScriptTitle = New-Object system.Windows.Forms.Label
