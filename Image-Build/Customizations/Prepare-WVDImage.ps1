@@ -64,8 +64,7 @@ Param
 [string]$scriptPath = $MyInvocation.MyCommand.Definition
 [string]$scriptName = [IO.Path]::GetFileNameWithoutExtension($scriptPath)
 [string]$scriptFileName = Split-Path -Path $scriptPath -Leaf
-[string]$scriptRoot = Split-Path -Path $scriptPath -Parent
-If (!$StagingPath) {$StagingPath = $ScriptRoot}
+If (!$StagingPath) {$StagingPath = $PSScriptRoot}
 If (!(Test-Path $StagingPath)) { cmd /c mkdir "$StagingPath" }
 [String]$Script:LogDir = "$($env:SystemRoot)\Logs\ImagePrep"
 [string]$Script:LogName = "$ScriptName.log"
@@ -517,8 +516,7 @@ Function Clean-Image
     
     ForEach ($Suffix in $RegKeySuffixes) { Set-RegistryValue -Key "$RegKeyParent$Suffix" -Name StateFlags0100 -Type DWord -Value 2 }
     Start-Process -FilePath cleanmgr.exe -ArgumentList "/sagerun:100" -Wait -PassThru
-
-
+    
 }
 
 #endregion
@@ -529,7 +527,7 @@ If( $Office365Install -eq $true )
 {
     $Ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/install-office-on-wvd-master-image"
     $Script:Section = 'Office 365'
-    $dirOffice = "$ScriptRoot\Office365"
+    $dirOffice = "$PSScriptRoot\Office365"
 
     #Process form input if Not Configured is set to prevent configuring local GPO
 
