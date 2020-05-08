@@ -24,7 +24,7 @@ Param
     [string]$AADTenantID,
 
     #install Office 365
-    [boolean]$Office365Install=$true,
+    [switch]$Office365Install=$true,
 
     # Outlook Email Cached Sync Time, Change to blank if you don't want to configure.
     [ValidateSet('3 days', '1 week', '2 weeks', '1 month', '3 months', '6 months', '12 months', '24 months', '36 months', '60 months', 'All')]
@@ -39,25 +39,25 @@ Param
     [string]$CalendarSyncMonths=1,
 
     # Install OneDrive per-machine
-    [boolean]$OneDriveInstall=$true,
+    [switch]$OneDriveInstall=$true,
 
     # Install FSLogix Agent
-    [boolean]$FSLogixInstall=$true,
+    [switch]$FSLogixInstall=$true,
 
     #UNC Paths to FSLogix Profile Disks. Enclose each value in double quotes seperated by a ',' (ex: "\\primary\fslogix","\\failover\fslogix")
     $FSLogixVHDPath,
 
     #Install Microsoft Teams in the Per-Machine configuration. Update the $TeamsURL variable to point to the latest version as needed.
-    [boolean]$TeamsInstall=$false,
+    [switch]$TeamsInstall=$false,
 
     #Install Microsoft Edge Chromium. Update $EdgeURL variable to point to latest version as needed.
-    [boolean]$EdgeInstall=$true,
+    [switch]$EdgeInstall=$true,
 
     #Disable Windows Update
-    [boolean]$WindowsUpdateDisable=$True,
+    [switch]$WindowsUpdateDisable=$True,
 
     #Run Disk Cleanup at end. Will require a reboot before sysprep.
-    [boolean]$CleanupImage=$True
+    [switch]$CleanupImage=$True
 )
 
 #region Variables
@@ -523,7 +523,7 @@ Function Clean-Image
 
 #region Office365
 
-If( $Office365Install -eq $true )
+If( $Office365Install )
 {
     $Ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/install-office-on-wvd-master-image"
     $Script:Section = 'Office 365'
@@ -605,7 +605,7 @@ If( $Office365Install -eq $true )
 #endregion Office 365
 
 #region OneDrive
-If ( $OneDriveInstall -eq $true)
+If ( $OneDriveInstall )
 {
     $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/install-office-on-wvd-master-image"
 
@@ -669,7 +669,7 @@ If ( $OneDriveInstall -eq $true)
 
 #region Teams
 
-If ( $TeamsInstall -eq $true )
+If ( $TeamsInstall )
 {
     # Download and install Microsoft Teams 
     $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/teams-on-wvd"
@@ -755,7 +755,7 @@ If ($FSLogixInstall)
 #endregion FSLogix Agent
 
 #region Edge Enterprise
-If ( $EdgeInstall -eq $true )
+If ( $EdgeInstall )
 {
 
     $Script:Section='Edge Enterprise'
@@ -808,7 +808,7 @@ $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/set-up-customize-
 
 Write-Log "Now starting to apply $Script:Section in accordance with `"$ref`"." -Source 'Main'
 
-If ($WindowsUpdateDisable -eq $True)
+If ($WindowsUpdateDisable )
 {
     Write-Log "Disabling Windows Updates via Group Policy setting" -Source 'Main'
     Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -RegistryValue NoAutoUpdate -RegistryType Dword -RegistryData 1
@@ -947,7 +947,7 @@ $Script:Section='Cleanup'
 Write-Log "Outputing Group Policy Results and Local GPO Backup to `"$Script:LogDir\LGPO`"" -Source 'Main'
 Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -PassThru -Wait
 Start-Process -FilePath "$StagingPath\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -PassThru -Wait
-If ($CleanupImage -eq $true) { Clean-Image }
+If ( $CleanupImage ) { Clean-Image }
 Write-Log -message "$scriptFileName completed." -source 'Main'
 Remove-Item "$StagingPath\*" -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item "$StagingPath" -Recurse -force -ErrorAction SilentlyContinue
