@@ -50,23 +50,36 @@ $Execute.location = New-Object System.Drawing.Point(20, 610)
 $Execute.Font = 'Microsoft Sans Serif,18,style=Bold'
 $Execute.ForeColor = "#ffffff"
 $Execute.Add_Click({
-    [string]$AADTenantID = $AADTenantID.Text
-    [boolean]$Office365Install = $InstallOffice365.Checked
-    $EmailCacheTime = $EmailCacheMonths.SelectedItem
-    $CalendarSync = $CalendarSyncMode.SelectedItem
-    $CalendarSyncMonths = $CalSyncTime.SelectedItem
-    [boolean]$OneDriveInstall = $InstallOneDrive.Checked
-    [boolean]$FSLogixInstall = $InstallFSLogix.Checked
-    [string]$FSLogixVHDPath = $VHDPath.Text
-    [boolean]$TeamsInstall = $InstallTeams.Checked
-    [boolean]$EdgeInstall = $InstallEdge.Checked
-    [boolean]$WindowsUpdateDisable = $DisableWU.Checked
-    [boolean]$CleanupImage = $RunCleanMgr.Checked
 
-    $args = "-Office365Install $Office365Install -OneDriveInstall $OneDriveInstall -FSLogixInstall $FSLogixInstall -TeamsInstall $TeamsInstall -EdgeInstall $EdgeInstall -WindowsUpdateDisable $WindowsUpdateDisable -CleanupImage $CleanupImage"
-    If ($AADTenantID -ne '') { $args = "$args -AADTenantID $AADTenantID" }
-    If ($FSLogixVHDPath -ne '') { $args = "$args -FSLogixVHDPath $FSLogixVHDPath" }
+    If ($InstallOffice365.Checked)
+    {
+        $EmailCacheTime = $EmailCacheMonths.SelectedItem
+        $CalendarSync = $CalendarSyncMode.SelectedItem
+        $CalendarSyncMonths = $CalSyncTime.SelectedItem
+        $args = "-Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths"
+    }
+    If ($InstallOneDrive.Checked)
+    {
+        $args = "$args -OneDriveInstall"
+        If ($AADTenantID -ne '')
+        {
+            $args = "$args -AADTenantID $AADTenantID"
+        }
 
+    }
+    If ($InstallFSLogix.Checked)
+    {
+        $args = "$args -FSLogixInstall"
+        If ($FSLogixVHDPath -ne '')
+        {
+            $args = "$args -FSLogixVHDPath $FSLogixVHDPath"
+        }
+    }
+    If ($InstallTeams.Checked) { $args = "$args -TeamsInstall" }
+    If ($InstallEdge.Checked) { $args = "$args -EdgeInstall" }
+    If ($DisableWU.Checked) { $args = "$args -WindowsUpdateDisable" }
+    If ($RunCleanMgr.Checked) { $args = "$args -CleanupImage" }
+    
     $command = "$PSScriptRoot\Prepare-WVDImage.ps1"
     $WVDGoldenImagePrep.Close()
     & $command $args
