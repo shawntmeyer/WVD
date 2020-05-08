@@ -67,9 +67,9 @@ $Execute.Add_Click({
     If ($AADTenantID -ne '') { $args = "$args -AADTenantID $AADTenantID" }
     If ($FSLogixVHDPath -ne '') { $args = "$args -FSLogixVHDPath $FSLogixVHDPath" }
 
-    $command = ".\Prepare-WVDImage.ps1 $args"
+    $command = "$PSScriptRoot\Prepare-WVDImage.ps1"
     $WVDGoldenImagePrep.Close()
-    Invoke-Expression $command
+    & $command $args
 })
 
 $ScriptTitle = New-Object system.Windows.Forms.Label
