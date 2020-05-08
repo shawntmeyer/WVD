@@ -1,4 +1,4 @@
-﻿#Requires -RunAsAdministrator
+#Requires -RunAsAdministrator
 
 <#
 .Synopsis
@@ -16,9 +16,6 @@
 
 Param
 (
-    # Working directory for script
-    [string]$StagingPath,
-
     #Azure Active Directory TenantID
     [Parameter(Mandatory=$false)]
     [string]$AADTenantID,
@@ -26,16 +23,16 @@ Param
     #install Office 365
     [switch]$Office365Install,
 
-    # Outlook Email Cached Sync Time, Change to blank if you don't want to configure.
-    [ValidateSet('3 days', '1 week', '2 weeks', '1 month', '3 months', '6 months', '12 months', '24 months', '36 months', '60 months', 'All')]
+    # Outlook Email Cached Sync Time, Change to 'Not Configured' if you don't want to configure.
+    [ValidateSet('Not Configured', '3 days', '1 week', '2 weeks', '1 month', '3 months', '6 months', '12 months', '24 months', '36 months', '60 months', 'All')]
     [string]$EmailCacheTime = '1 month',
 
-    # Outlook Calendar Sync Mode, Change to blank if you don't want to configure. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
-    [ValidateSet('Inactive','Primary Calendar Only','All Calendar Folders')]
+    # Outlook Calendar Sync Mode, Change to 'Not Configured' if you don't want to configure. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
+    [ValidateSet('Not Configured', 'Inactive','Primary Calendar Only','All Calendar Folders')]
     [string]$CalendarSync = 'Primary Calendar Only',
 
-    # Outlook Calendar Sync Months, Change to blank if you don't want to configure. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
-    [ValidateSet(1,3,6,12)]
+    # Outlook Calendar Sync Months, Change to 'Not Configured' if you don't want to configure. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
+    [ValidateSet('Not Configured','1','3','6','12')]
     [string]$CalendarSyncMonths=1,
 
     # Install OneDrive per-machine
@@ -64,8 +61,6 @@ Param
 [string]$scriptPath = $MyInvocation.MyCommand.Definition
 [string]$scriptName = [IO.Path]::GetFileNameWithoutExtension($scriptPath)
 [string]$scriptFileName = Split-Path -Path $scriptPath -Leaf
-If (!$StagingPath) {$StagingPath = $PSScriptRoot}
-If (!(Test-Path $StagingPath)) { cmd /c mkdir "$StagingPath" }
 [String]$Script:LogDir = "$($env:SystemRoot)\Logs\ImagePrep"
 [string]$Script:LogName = "$ScriptName.log"
 
@@ -496,7 +491,7 @@ Function Execute-LGPO
     {
         $TxtFilePath = $RegistryFile.FullName
         Write-Log -Message "Now applying settings from `"$txtFilePath`" to Local Group Policy via LGPO.exe." -Source ${CmdletName}
-        Start-Process -FilePath "$StagingPath\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -PassThru -Wait -NoNewWindow
+        Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -PassThru -Wait -NoNewWindow
     }
 
 }
@@ -612,7 +607,7 @@ If ( $OneDriveInstall )
     $Script:Section='OneDrive'
     Write-Log -Message "Starting OneDrive installation and configuration in accordance with `"$ref`"." -Source 'Main'
 
-    $output = "$StagingPath\onedrivesetup.exe"
+    $output = "$PSScriptRoot\onedrivesetup.exe"
     Download-File -url $OneDriveURL -outputfile $output
  
     Write-Log -Message "Uninstalling the OneDrive per-user installations." -Source 'Main'
@@ -678,7 +673,7 @@ If ( $TeamsInstall )
     $Script:Section='Teams'
 
     Write-Log -Message "Starting Teams Installation and Configuration in accordance with `"$ref`"." -Source 'Main'
-    $output = "$StagingPath\Teams_Windows_x64.msi"
+    $output = "$PSScriptRoot\Teams_Windows_x64.msi"
     Download-File -url $TeamsUrl -outputfile $output
  
     Set-RegistryValue -Key "HKLM:\Software\Microsoft\Teams" -Name IsWVDEnvironment -Value 1 -Type DWord
@@ -703,10 +698,10 @@ If ($FSLogixInstall)
     $Script:Section='FSLogix Agent'
     Write-Log "Starting FSLogix Agent Installation and Configuration." -Source 'Main'
     Write-Log "Downloading FSLogix Agent from Microsoft." -Source 'Main'
-    $output = "$StagingPath\fslogix.zip"
+    $output = "$PSScriptRoot\fslogix.zip"
     Download-File -url $FSLogixUrl -outputfile $output
     Write-Log -message "Extracting FSLogix Agent from zip." -Source 'Main'
-    $destpath = "$stagingPath\FSLogix"
+    $destpath = "$PSScriptRoot\FSLogix"
     Expand-Archive $output -DestinationPath $destpath -Force
     Start-Sleep -Seconds 5
     Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
@@ -720,7 +715,7 @@ If ($FSLogixInstall)
     {
         Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
     }
-    $Installer="$stagingPath\fslogix\x64\release\fslogixappssetup.exe"
+    $Installer="$PSScriptRoot\fslogix\x64\release\fslogixappssetup.exe"
     If (Test-Path $Installer)
     {
         Write-Log -Message "Installation File: `"$installer`" successfully extracted." -Source 'Main'
@@ -763,7 +758,7 @@ If ( $EdgeInstall )
     # Disable Edge Updates
     Write-Log -Message "Starting Microsoft Edge Enterprise Installation and Configuration in accordance with `"$ref`"." -Source 'Main'
 
-    $dirTemplates = "$StagingPath\Edge\Templates"
+    $dirTemplates = "$PSScriptRoot\Edge\Templates"
     if (Test-Path $dirTemplates)
     {
         Write-Log -message "Copying Group Policy ADMX/L files to PolicyDefinitions Folders." -Source 'Main'
@@ -776,7 +771,7 @@ If ( $EdgeInstall )
     Write-Log -Message "Now disabling Edge Automatic Desktop Shortcut Creation." -Source 'Main'
     Set-RegistryValue -Key "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name DisableEdgeDesktopShortcutCreation -Value 1 -Type Dword
     Write-Log "Now Downloading Enterprise Version of Edge from Microsoft." -Source 'Main'
-    $output = "$StagingPath\MicrosoftEdgeEnteprisex64.msi"
+    $output = "$PSScriptRoot\MicrosoftEdgeEnteprisex64.msi"
     Download-File -url $EdgeUrl -outputfile $output
     $installer = "msiexec.exe"
     $MSIfile = "$output" 
@@ -946,8 +941,8 @@ Write-Log "Completed $Script:Section script section." -Source 'Main'
 $Script:Section='Cleanup'
 Write-Log "Outputing Group Policy Results and Local GPO Backup to `"$Script:LogDir\LGPO`"" -Source 'Main'
 Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -PassThru -Wait
-Start-Process -FilePath "$StagingPath\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -PassThru -Wait
+Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -PassThru -Wait
 If ( $CleanupImage ) { Clean-Image }
 Write-Log -message "$scriptFileName completed." -source 'Main'
-Remove-Item "$StagingPath\*" -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item "$StagingPath" -Recurse -force -ErrorAction SilentlyContinue
+Remove-Item "$PSScriptRoot\*" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item "$PSScriptRoot" -Recurse -force -ErrorAction SilentlyContinue
