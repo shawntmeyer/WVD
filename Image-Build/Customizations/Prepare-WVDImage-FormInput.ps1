@@ -62,7 +62,12 @@ $Execute.Add_Click({
     $EdgeInstall = $InstallEdge.Checked
     $WindowsUpdateDisable = $DisableWU.Checked
     $CleanupImage = $RunCleanMgr.Checked
-    $command = ".\Prepare-WVDImage.ps1 -AADTenantID $AADTenantID -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths -OneDriveInstall $OneDriveInstall -FSLogixInstall $FSLogixInstall -EdgeInstall $EdgeInstall -WindowsUpdateDisable $WindowsUpdateDisable -CleanupImage $CleanupImage"
+
+    $args = "-Office365Install $Office365Install -OneDriveInstall $OneDriveInstall -FSLogixInstall $FSLogixInstall -TeamsInstall $TeamsInstall -EdgeInstall $EdgeInstall -WindowsUpdateDisable $WindowsUpdateDisable -CleanupImage $CleanupImage"
+    If ($AADTenantID -ne '') { $args = "$args -AADTenantID $AADTenantID" }
+    If ($FSLogixVHDPath -ne '') { $args = "$args -FSLogixVHDPath $FSLogixVHDPath" }
+
+    $command = ".\Prepare-WVDImage.ps1 $args"
     $WVDGoldenImagePrep.Close()
     Invoke-Expression $command
 })
