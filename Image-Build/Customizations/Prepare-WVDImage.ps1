@@ -101,7 +101,6 @@ If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -
 #endregion
 
 #region functions
-
 Function Write-Log
 {
     <#
