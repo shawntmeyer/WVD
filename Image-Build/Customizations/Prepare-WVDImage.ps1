@@ -451,7 +451,7 @@ Function Update-LGPORegistryTxt
         [Parameter(Mandatory=$true,Position=3)]
         [string]$RegistryData,
         [Parameter(Mandatory=$true,Position=4)]
-        [ValidateSet('DWORD','String')]
+        [ValidateSet('DWORD','String','SZ')]
         [string]$RegistryType,
         [string]$outputDir="$Script:LogDir\LGPO",
         [string]$outfileprefix=$Script:Section
