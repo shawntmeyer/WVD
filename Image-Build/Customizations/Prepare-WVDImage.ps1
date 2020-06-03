@@ -31,20 +31,20 @@ Param
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
     [bool]$Office365Install,
 
-    # Outlook Email Cached Sync Time, Change to 'Not Configured' if you don't want to configure.
+    # Outlook Email Cached Sync Time, Microsoft Recommendation is 1 month.
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
     [ValidateSet("Not Configured", "3 days", "1 week", "2 weeks", "1 month", "3 months", "6 months", "12 months", "24 months", "36 months", "60 months", "All")]
-    [string]$EmailCacheTime = "1 month",
+    [string]$EmailCacheTime = "Not Configured",
 
-    # Outlook Calendar Sync Mode, Change to 'Not Configured' if you don't want to configure. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
+    # Outlook Calendar Sync Mode, Microsoft Recommendation is Primary Calendar Only. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
     [ValidateSet("Not Configured", "Inactive","Primary Calendar Only","All Calendar Folders")]
-    [string]$CalendarSync = "Primary Calendar Only",
+    [string]$CalendarSync = "Not Configured",
 
-    # Outlook Calendar Sync Months, Change to 'Not Configured' if you don't want to configure. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
+    # Outlook Calendar Sync Months, Microsoft Recommendation is 1 Month. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
     [ValidateSet("Not Configured","1","3","6","12")]
-    [string]$CalendarSyncMonths="1",
+    [string]$CalendarSyncMonths="Not Configured",
 
     # Install OneDrive per-machine
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
@@ -72,7 +72,7 @@ Param
 
     #Disable Windows Update
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
-    [bool]$WindowsUpdateDisable,
+    [bool]$DisableUpdates,
 
     #Run Disk Cleanup at end. Will require a reboot before sysprep.
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
@@ -93,9 +93,11 @@ If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -
 #Update URLs with new releases
 
 [uri]$OneDriveUrl = "https://go.microsoft.com/fwlink/p/?linkid=2121808"
+[uri]$VSRedistUrl = "https://aka.ms/vs/16/release/vc_redist.x64.exe"
+[uri]$WebSocketUrl = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE4vkL6"
 [uri]$TeamsUrl = "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.4461/Teams_windows_x64.msi"
 [uri]$FSLogixUrl = "https://go.microsoft.com/fwlink/?linkid=2084562"
-[uri]$EdgeUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/9178ea11-b61e-465a-bc66-158a1868cfe0/MicrosoftEdgeEnterpriseX64.msi"
+[uri]$EdgeUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/1fc0c5fe-c1f5-4879-a43c-515d9f731444/MicrosoftEdgeEnterpriseX64.msi"
 [uri]$EdgeTemplatesUrl ="http://dl.delivery.mp.microsoft.com/filestreamingservice/files/77969b35-d61e-4c50-8876-3b281c159a9d/MicrosoftEdgePolicyTemplates.cab"
 
 #endregion
@@ -342,7 +344,6 @@ Function Write-Log
 		}
 	}
 }
-
 Function Set-RegistryValue
 {
 	[CmdletBinding()]
@@ -408,7 +409,6 @@ Function Set-RegistryValue
 	    }
     }
 }
-
 Function Download-File
 {
     [CmdletBinding()]
@@ -437,7 +437,6 @@ Function Download-File
         Write-Log -message "Download was successful. Final file size: `"$totalsize`" mb" -Source ${CmdletName}
     }
 }
-
 Function Update-LGPORegistryTxt
 {
 	Param (
@@ -451,7 +450,7 @@ Function Update-LGPORegistryTxt
         [Parameter(Mandatory=$true,Position=3)]
         [string]$RegistryData,
         [Parameter(Mandatory=$true,Position=4)]
-        [ValidateSet('DWORD','String','SZ')]
+        [ValidateSet('DWORD','String')]
         [string]$RegistryType,
         [string]$outputDir="$Script:LogDir\LGPO",
         [string]$outfileprefix=$Script:Section
@@ -459,9 +458,9 @@ Function Update-LGPORegistryTxt
 
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     # Convert $RegistryType to UpperCase to prevent LGPO errors.
-    $RegistryType = $RegistryType.ToUpper()
+    $ValueType = $RegistryType.ToUpper()
     # Change String type to SZ for text file
-    If ($RegistryType -eq 'STRING') {$RegistryType='SZ'}
+    If ($ValueType -eq 'STRING') {$ValueType='SZ'}
     # Replace any incorrect registry entries for the format needed by text file.
     $modified=$false
     $SearchStrings = 'HKLM:\','HKCU:\','HKEY_CURRENT_USER:\','HKEY_LOCAL_MACHINE:\'
@@ -495,10 +494,9 @@ Function Update-LGPORegistryTxt
     Add-Content -Path $Outfile -Value $Scope
     Add-Content -Path $Outfile -Value $RegistryKeyPath
     Add-Content -Path $Outfile -Value $RegistryValue
-    Add-Content -Path $Outfile -Value "$($RegistryType):$RegistryData"
+    Add-Content -Path $Outfile -Value "$($ValueType):$RegistryData"
     Add-Content -Path $Outfile -Value ""
 }
-
 Function Execute-LGPO
 {
     Param (
@@ -516,7 +514,6 @@ Function Execute-LGPO
         Write-Log -Message "Now applying settings from `"$txtFilePath`" to Local Group Policy via LGPO.exe." -Source ${CmdletName}
         Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -PassThru -Wait -NoNewWindow
     }
-
 }
 
 Function Clean-Image
@@ -536,7 +533,6 @@ Function Clean-Image
     Start-Process -FilePath cleanmgr.exe -ArgumentList "/sagerun:100" -Wait -PassThru
     
 }
-
 Function Prepare-Image
 {
     Param
@@ -545,20 +541,20 @@ Function Prepare-Image
         [Parameter(Mandatory=$false)]
         [bool]$Office365Install,
 
-        # Outlook Email Cached Sync Time, Change to 'Not Configured' if you don't want to configure.
+        # Outlook Email Cached Sync Time
         [Parameter(Mandatory=$false)]
         [ValidateSet("Not Configured", "3 days", "1 week", "2 weeks", "1 month", "3 months", "6 months", "12 months", "24 months", "36 months", "60 months", "All")]
-        [string]$EmailCacheTime = "1 month",
+        [string]$EmailCacheTime = "Not Configured",
 
-        # Outlook Calendar Sync Mode, Change to 'Not Configured' if you don't want to configure. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
+        # Outlook Calendar Sync Mode. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
         [Parameter(Mandatory=$false)]
         [ValidateSet("Not Configured", "Inactive","Primary Calendar Only","All Calendar Folders")]
-        [string]$CalendarSync = "Primary Calendar Only",
+        [string]$CalendarSync = "Not Configured",
 
-        # Outlook Calendar Sync Months, Change to 'Not Configured' if you don't want to configure. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
+        # Outlook Calendar Sync Months. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
         [Parameter(Mandatory=$false)]
         [ValidateSet("Not Configured","1","3","6","12")]
-        [string]$CalendarSyncMonths="1",
+        [string]$CalendarSyncMonths="Not Configured",
 
         # Install OneDrive per-machine
         [Parameter(Mandatory=$false)]
@@ -586,7 +582,7 @@ Function Prepare-Image
 
         #Disable Windows Update
         [Parameter(Mandatory=$false)]
-        [bool]$WindowsUpdateDisable,
+        [bool]$DisableUpdates,
 
         #Run Disk Cleanup at end. Will require a reboot before sysprep.
         [Parameter(Mandatory=$false)]
@@ -601,10 +597,6 @@ Function Prepare-Image
         $dirOffice = "$PSScriptRoot\Office365"
 
         #Process form input if Not Configured is set to prevent configuring local GPO
-
-        If ($EmailCacheTime -eq 'Not Configured') {$EmailCacheTime = ''}
-        If ($CalendarSync -eq 'Not Configured') {$CalendarSync = ''}
-        If ($CalendarSyncWindowSetting -eq 'Not Configured') {$CalendarSyncWindowSetting = ''}
 
         Write-Log -Message "Installing and configuring Office 365 per `"$ref`"." -Source 'Main'
 
@@ -623,20 +615,16 @@ Function Prepare-Image
             Copy-Item -Path "$DirTemplates\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us"
         }
 
-        Write-Log -Message "Update Computer LGPO registry text file." -Source 'Main'
-
-        # Hide Office Update Notifications
-        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'software\policies\microsoft\office\16.0\common\officeupdate' -RegistryValue HideUpdateNotifications -RegistryType DWord -RegistryData 1
-        # Hide and Disable Updates
-        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'software\policies\microsoft\office\16.0\common\officeupdate' -RegistryValue HideEnableDisableUpdates -RegistryType DWord -RegistryData 1
-
         Write-Log -Message "Update User LGPO registry text file." -Source 'Main'
         # Turn off insider notifications
         Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\policies\microsoft\office\16.0\common' -RegistryValue InsiderSlabBehavior -RegistryType DWord -RegistryData 2
 
-        # Enable Outlook Cached Mode
-        Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue Enable -RegistryType DWord -RegistryData 1
-
+        If (($EmailCacheTime -ne 'Not Configured') -or ($CalendarSync -ne 'Not Configured') -or ($CalendarSyncMonths -ne 'Not Configured'))
+        {
+            # Enable Outlook Cached Mode
+            Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'Enable' -RegistryType DWord -RegistryData 1
+        }
+        
         # Cached Exchange Mode Settings: https://support.microsoft.com/en-us/help/3115009/update-lets-administrators-set-additional-default-sync-slider-windows
         If ($EmailCacheTime -eq '3 days') { $SyncWindowSetting = 0; $SyncWindowSettingDays = 3 }
         If ($EmailCacheTime -eq '1 week') { $SyncWindowSetting = 0; $SyncWindowSettingDays = 7 }
@@ -650,8 +638,8 @@ Function Prepare-Image
         If ($EmailCacheTime -eq '60 months') { $SyncWindowSetting = 60 }
         If ($EmailCacheTime -eq 'All') { $SyncWindowSetting = 0; $SyncWindowSettingDays = 0 }
 
-        If ($EmailCacheTime -and $EmailCacheTime -ne '') { Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue SyncWindowSetting -RegistryType DWORD -RegistryData $SyncWindowSetting }
-        If ($SyncWindowSettingDays) { Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue SyncWindowSettingDays -RegistryType DWORD -RegistryData $SyncWindowSettingDays }
+        If ($SyncWindowSetting) { Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSetting' -RegistryType DWORD -RegistryData $SyncWindowSetting }
+        If ($SyncWindowSettingDays) { Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSettingDays' -RegistryType DWORD -RegistryData $SyncWindowSettingDays }
 
         # Calendar Sync Settings: https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
         If ($CalendarSync -eq 'Inactive') { $CalendarSyncWindowSetting=0; }
@@ -662,13 +650,28 @@ Function Prepare-Image
         {
             Reg LOAD HKLM\DefaultUser "$env:SystemDrive\Users\Default User\NtUser.dat"
             Set-RegistryValue -Key 'HKLM:\DefaultUser\Software\Policies\Microsoft\Office16.0\Outlook\Cached Mode' -Name CalendarSyncWindowSetting -Type DWord -Value $CalendarSyncWindowSetting
-            If ($CalendarSyncMonths -and $CalendarSyncMonths -ne '')
+            If ($CalendarSyncMonths -ne 'Not Configured')
             {
                 Set-RegistryValue -Key 'HKCU:\DefaultUser\Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -Name CalendarSyncWindowSettingMonths -Type DWord -Value $CalendarSyncMonths
             }
             REG UNLOAD HKLM\DefaultUser
         }
-
+        Write-Log -Message "Update Computer LGPO registry text file." -Source 'Main'
+        $RegistryKeyPath = 'SOFTWARE\Policies\Microsoft\Office\16.0\Common\OfficeUpdate'
+        # Hide Office Update Notifications
+        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue HideUpdateNotifications -RegistryType DWord -RegistryData 1
+        # Hide and Disable Updates
+        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue HideEnableDisableUpdates -RegistryType DWord -RegistryData 1
+        If ($DisableUpdates)
+        {
+            # Disable Updates            
+            Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 0
+        }
+        else
+        {
+            # Enable Updates
+            Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 1
+        }
         Execute-LGPO -SearchTerm "$Script:Section"
         Write-Log -Message "Completed the $Script:Section Section" -Source 'Main'
 
@@ -692,7 +695,7 @@ Function Prepare-Image
 
         Write-Log -Message "The exit code from per-user uninstallation is $($Uninstaller.ExitCode)" -Source 'Main'
 
-        Set-RegistryValue -Key "HKLM:\Software\Microsoft\OneDrive" -Name AllUsersInstall -Value 1 -Type DWord
+        Set-RegistryValue -Key "HKLM:\Software\Microsoft\OneDrive" -Name 'AllUsersInstall' -Value 1 -Type DWord
 
         Write-Log -message "Starting installation of OneDrive for all users." -Source 'Main'
  
@@ -722,15 +725,17 @@ Function Prepare-Image
             }
         }
 
-        Write-Log -Message "Now configuring OneDrive KFM to run silently" -Source 'Main'
-
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name OneDrive -Value "C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe /background" -Type String
-
+        Write-Log -Message "Now Configuring the Update Ring to Production" -Source 'Main'
+        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'GPOSetUpdateRing' -RegistryType DWORD -RegistryData 5
+        Write-Log -Message "Now Configuring OneDrive to automatically sign-in with logged on user credentials." -Source 'Main'
+        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'SilentAccountConfig' -RegistryType DWord -RegistryData 1
+        Write-Log -Message "Now Enabling Files on Demand" -Source 'Main'
+        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'FilesOnDemandEnabled' -RegistryType DWORD -RegistryData 1
         If ($AADTenantID -and $AADTenantID -ne '')
         {
             Write-Log "Now applying OneDrive for Business Known Folder Move Silent Configuration Settings." -Source 'Main'
-            Update-LGPORegistryTxt -scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue SilentAccountConfig -RegistryType DWord -RegistryData 1
-            Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue KFMSilentOptIn -RegistryType String -RegistryData "$AADTenantID"
+            Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue 'KFMSilentOptIn' -RegistryType String -RegistryData "$AADTenantID"
         }
         Execute-LGPO -SearchTerm "$Script:Section"
         Write-Log -Message "Complete $Script:Section Section." -Source 'Main'
@@ -749,15 +754,31 @@ Function Prepare-Image
         $Script:Section='Teams'
 
         Write-Log -Message "Starting Teams Installation and Configuration in accordance with `"$ref`"." -Source 'Main'
-        $output = "$PSScriptRoot\Teams_Windows_x64.msi"
-        Download-File -url $TeamsUrl -outputfile $output
+        $VSRedist = "$PSScriptRoot\VSRedist.exe"
+        Download-File -url $VSRedistUrl -outputfile $VSRedist
+
+        $WebsocketMSI = "$PSScriptRoot\Websocket.msi"
+        Download-File -url $WebSocketUrl -outputfile $WebSocketMSI
+
+        $TeamsMSI = "$PSScriptRoot\Teams_Windows_x64.msi"
+        Download-File -url $TeamsUrl -outputfile $TeamsMSI
  
+        Write-Log -message "Installing the latest VS Redistributables" -Source 'Main'
+        $Args = "/install /quiet /norestart"
+        $Installer = Start-Process -FilePath $VSRedist -ArgumentList $Args -Wait -PassThru
+        Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
+
+        $Args = "/i `"$WebsocketMSI`" /l*v `"$env:WinDir\Logs\Software\WebSocket_MSI.log`" /quiet"
+        Write-Log -message "Running `"msiexec.exe $Args`"" -Source 'Main'
+
+        $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Args -Wait -PassThru
+        Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
+
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\Teams" -Name IsWVDEnvironment -Value 1 -Type DWord
 
         Write-Log -message "Starting installation of Microsoft Teams for all users." -Source 'Main'
- 
-        # Command line looks like: msiexec /i <msi_name> /l*v < install_logfile_name> ALLUSER=1
-        $Args = "/i `"$output`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1" 
+         # Command line looks like: msiexec /i <msi_name> /l*v < install_logfile_name> ALLUSER=1
+        $Args = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1" 
         Write-Log -message "Running `"msiexec.exe $Args`"" -Source 'Main'
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Args -Wait -PassThru
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
@@ -810,12 +831,12 @@ Function Prepare-Image
         if ( $FSLogixVHDPath -and $FSLogixVHDPath -ne '' )
         {
             Write-Log -Message "Enabling FSLogix Profile Container in Registry"
-            Set-RegistryValue -Key $RegistryKey -Name Enabled -Value 1 -Type DWord
+            Set-RegistryValue -Key $RegistryKey -Name 'Enabled' -Value 1 -Type DWord
             Write-Log -Message "Setting VHDLocation to `"$FSLogixVHDPath`" in registry."
-            Set-RegistryValue -Key $RegistryKey -Name VHDLocations -Value $FSLogixVHDPath -Type MultiString
+            Set-RegistryValue -Key $RegistryKey -Name 'VHDLocations' -Value $FSLogixVHDPath -Type MultiString
             Add-MpPreference -ExclusionPath $FSLogixVHDPath
             Write-Log -Message "Configuring VHD Folder name to begin with username instead of SID"
-            Set-RegistryValue -Key $RegistryKey -Name FlipFlopProfileDirectoryName -Value 1 -Type DWord
+            Set-RegistryValue -Key $RegistryKey -Name 'FlipFlopProfileDirectoryName' -Value 1 -Type DWord
             Write-Log -Message "Configuring FSLogix Office Container to include Office Activation Information."
             Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'Software\Policies\FSLogix\ODFC' -RegistryValue IncludeOfficeActivation -RegistryType DWord -RegistryData 1
         }
@@ -829,7 +850,7 @@ Function Prepare-Image
     If ( $EdgeInstall )
     {
 
-        $Script:Section='Edge Enterprise'
+        $Script:Section='Edge for Business'
         $ref = 'https://docs.microsoft.com/en-us/deployedge/deploy-edge-with-configuration-manager'
         # Disable Edge Updates
         Write-Log -Message "Starting Microsoft Edge Enterprise Installation and Configuration in accordance with `"$ref`"." -Source 'Main'
@@ -841,8 +862,11 @@ Function Prepare-Image
             Copy-Item -Path "$DirTemplates\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -force
             Copy-Item -Path "$DirTemplates\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us" -force
         }
-        Write-Log -Message "Now disabling Edge Automatic Updates" -Source 'Main'
-        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue UpdateDefault -RegistryType DWORD -RegistryData 0
+        If ($DisableUpdates)
+        {
+            Write-Log -Message "Now disabling Edge Automatic Updates" -Source 'Main'
+            Update-LGPORegistryTxt -scope 'Computer' -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue 'UpdateDefault' -RegistryType DWORD -RegistryData 0
+        }
         # Disable Edge Desktop Shortcut Creation
         Write-Log -Message "Now disabling Edge Automatic Desktop Shortcut Creation." -Source 'Main'
         Set-RegistryValue -Key "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name DisableEdgeDesktopShortcutCreation -Value 1 -Type Dword
@@ -879,17 +903,17 @@ Function Prepare-Image
 
     Write-Log "Now starting to apply $Script:Section in accordance with `"$ref`"." -Source 'Main'
 
-    If ($WindowsUpdateDisable )
+    If ($DisableUpdates)
     {
         Write-Log "Disabling Windows Updates via Group Policy setting" -Source 'Main'
-        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -RegistryValue NoAutoUpdate -RegistryType Dword -RegistryData 1
+        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -RegistryValue 'NoAutoUpdate' -RegistryType 'Dword' -RegistryData 1
     }
     Write-Log "Enabling Time Zone Redirection from Client to Session Host." -Source 'Main'
-    Update-LGPORegistryTxt -scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -RegistryValue fEnableTimeZoneRedirection -RegistryType DWord -RegistryData 1
+    Update-LGPORegistryTxt -scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -RegistryValue 'fEnableTimeZoneRedirection' -RegistryType 'DWord' -RegistryData 1
 
     Write-Log "Disabling Storage Sense GPO" -Source 'Main'
 
-    Update-LGPORegistrytxt -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows\StorageSense' -RegistryValue AllowStorageSenseGlobal -RegistryType DWORD -RegistryData 0
+    Update-LGPORegistrytxt -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows\StorageSense' -RegistryValue 'AllowStorageSenseGlobal' -RegistryType 'DWord' -RegistryData 0
 
     # Fix issues with Doctor Watson Crashes
     # List of Registry Values from https://docs.microsoft.com/en-us/windows/win32/wer/wer-settings
@@ -1078,7 +1102,7 @@ If ($DisplayForm)
         }
         $TeamsInstall = $InstallTeams.Checked
         $EdgeInstall = $InstallEdge.Checked
-        $WindowsUpdateDisable = $DisableWU.Checked
+        $DisableUpdates = $DisableWU.Checked
         $CleanupImage = $RunCleanMgr.Checked
         $WVDGoldenImagePrep.Close()
         Prepare-Image `
@@ -1087,7 +1111,7 @@ If ($DisplayForm)
             -FSLogixInstall $FSLogixInstall -FSLogixVHDPath $FSLogixVHDPath `
             -TeamsInstall $TeamsInstall `
             -EdgeInstall $EdgeInstall `
-            -WindowsUpdateDisable $WindowsUpdateDisable `
+            -DisableUpdates $DisableUpdates `
             -CleanupImage $CleanupImage
     })
 
@@ -1183,7 +1207,7 @@ If ($DisplayForm)
 
     $VHDPath = New-Object system.Windows.Forms.TextBox
     $VHDPath.multiline = $false
-    $VHDPath.text = "\\Server\ShareName"
+    $VHDPath.text = "\\Server\ShareName (Clear to not set)"
     $VHDPath.width = 390
     $VHDPath.height = 20
     $VHDPath.location = New-Object System.Drawing.Point(270, 295)
@@ -1203,7 +1227,7 @@ If ($DisplayForm)
     })
 
     $LabelAADTenant = New-Object system.Windows.Forms.Label
-    $LabelAADTenant.text = "AAD Tenant ID "
+    $LabelAADTenant.text = "AAD Tenant ID (Configures KFM)"
     $LabelAADTenant.AutoSize = $true
     $LabelAADTenant.width = 25
     $LabelAADTenant.height = 20
@@ -1212,7 +1236,7 @@ If ($DisplayForm)
 
     $TenantID = New-Object system.Windows.Forms.TextBox
     $TenantID.multiline = $false
-    $TenantID.text = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXX"
+    $TenantID.text = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXX (Clear to not set)"
     $TenantID.width = 409
     $TenantID.height = 20
     $TenantID.location = New-Object System.Drawing.Point(251, 385)
@@ -1236,7 +1260,7 @@ If ($DisplayForm)
     $InstallEdge.Font = 'Microsoft Sans Serif,14'
 
     $DisableWU = New-Object system.Windows.Forms.CheckBox
-    $DisableWU.text = "Disable Windows Update"
+    $DisableWU.text = "Disable All Software Updates"
     $DisableWU.AutoSize = $false
     $DisableWU.width = 400
     $DisableWU.height = 30
@@ -1275,6 +1299,6 @@ Else
         -FSLogixInstall $FSLogixInstall -FSLogixVHDPath $FSLogixVHDPath `
         -TeamsInstall $TeamsInstall `
         -EdgeInstall $EdgeInstall `
-        -WindowsUpdateDisable $WindowsUpdateDisable `
+        -DisableUpdates $DisableUpdates `
         -CleanupImage $CleanupImage 
 }
