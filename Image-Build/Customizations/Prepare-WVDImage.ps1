@@ -97,7 +97,7 @@ If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -
 [uri]$WebSocketUrl = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE4vkL6"
 [uri]$TeamsUrl = "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.4461/Teams_windows_x64.msi"
 [uri]$FSLogixUrl = "https://go.microsoft.com/fwlink/?linkid=2084562"
-[uri]$EdgeUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/1fc0c5fe-c1f5-4879-a43c-515d9f731444/MicrosoftEdgeEnterpriseX64.msi"
+[uri]$EdgeUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/10c99438-300d-44e2-b9d3-789023d3dc51/MicrosoftEdgeEnterpriseX64.msi"
 [uri]$EdgeTemplatesUrl ="http://dl.delivery.mp.microsoft.com/filestreamingservice/files/77969b35-d61e-4c50-8876-3b281c159a9d/MicrosoftEdgePolicyTemplates.cab"
 
 #endregion
