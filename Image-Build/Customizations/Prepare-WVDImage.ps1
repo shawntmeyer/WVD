@@ -20,7 +20,7 @@
    Script will configure each of these items in accordance with reference articles specified in the code below.
    Script will also perform WVD specific and Azure generic image configurations per reference articles.
 #>
-
+[CmdletBinding(DefaultParameterSetName = 'Automation')]
 Param
 (
     #Display Input Form
