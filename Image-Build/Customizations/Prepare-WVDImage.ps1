@@ -29,7 +29,7 @@ Param
 
     #install Office 365
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
-    [bool]$Office365Install,
+    [bool]$Office365Install = $true,
 
     # Outlook Email Cached Sync Time, Microsoft Recommendation is 1 month.
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
@@ -44,11 +44,11 @@ Param
     # Outlook Calendar Sync Months, Microsoft Recommendation is 1 Month. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
     [ValidateSet("Not Configured","1","3","6","12")]
-    [string]$CalendarSyncMonths="Not Configured",
+    [string]$CalendarSyncMonths = "Not Configured",
 
     # Install OneDrive per-machine
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
-    [bool]$OneDriveInstall,
+    [bool]$OneDriveInstall = $true,
 
     #Azure Active Directory TenantID
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
@@ -56,7 +56,7 @@ Param
 
     # Install FSLogix Agent
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
-    [bool]$FSLogixInstall,
+    [bool]$FSLogixInstall = $true,
 
     #UNC Paths to FSLogix Profile Disks. Enclose each value in double quotes seperated by a ',' (ex: "\\primary\fslogix","\\failover\fslogix")
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
@@ -64,11 +64,11 @@ Param
 
     #Install Microsoft Teams in the Per-Machine configuration. Update the $TeamsURL variable to point to the latest version as needed.
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
-    [bool]$TeamsInstall,
+    [bool]$TeamsInstall = $true,
 
     #Install Microsoft Edge Chromium. Update $EdgeURL variable to point to latest version as needed.
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
-    [bool]$EdgeInstall,
+    [bool]$EdgeInstall = $true,
 
     #Disable Windows Update
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
@@ -76,7 +76,11 @@ Param
 
     #Run Disk Cleanup at end. Will require a reboot before sysprep.
     [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
-    [bool]$CleanupImage
+    [bool]$CleanupImage,
+
+    #Remove Built-in Windows Apps
+    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [bool]$RemoveApps = $true
 )
 
 #region Initialization
@@ -97,7 +101,7 @@ If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -
 [uri]$WebSocketUrl = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE4vkL6"
 [uri]$TeamsUrl = "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.12058/Teams_windows_x64.msi"
 [uri]$FSLogixUrl = "https://go.microsoft.com/fwlink/?linkid=2084562"
-[uri]$EdgeUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/cb24597c-c626-4ee5-bf3f-f5adeebd59f2/MicrosoftEdgeEnterpriseX64.msi"
+[uri]$EdgeUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/10c99438-300d-44e2-b9d3-789023d3dc51/MicrosoftEdgeEnterpriseX64.msi"
 [uri]$EdgeTemplatesUrl ="http://dl.delivery.mp.microsoft.com/filestreamingservice/files/77969b35-d61e-4c50-8876-3b281c159a9d/MicrosoftEdgePolicyTemplates.cab"
 
 #endregion
@@ -586,7 +590,11 @@ Function Prepare-Image
 
         #Run Disk Cleanup at end. Will require a reboot before sysprep.
         [Parameter(Mandatory=$false)]
-        [bool]$CleanupImage
+        [bool]$CleanupImage,
+
+        #Remove Apps
+        [Parameter(Mandatory=$false)]
+        [bool]$RemoveApps
     )
     #region Office365
 
@@ -699,10 +707,10 @@ Function Prepare-Image
 
         Write-Log -message "Starting installation of OneDrive for all users." -Source 'Main'
  
-        $Args = "/allusers"
-        Write-Log -Message "Trigger installation of file `"$output`" with switches `"$Args`"" -Source 'Main'
+        $Arguments = "/allusers"
+        Write-Log -Message "Trigger installation of file `"$output`" with switches `"$Arguments`"" -Source 'Main'
  
-        $Installer = Start-Process -FilePath $output -ArgumentList $Args -Wait -PassThru
+        $Installer = Start-Process -FilePath $output -ArgumentList $Arguments -Wait -PassThru
  
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
 
@@ -764,23 +772,23 @@ Function Prepare-Image
         Download-File -url $TeamsUrl -outputfile $TeamsMSI
  
         Write-Log -message "Installing the latest VS Redistributables" -Source 'Main'
-        $Args = "/install /quiet /norestart"
-        $Installer = Start-Process -FilePath $VSRedist -ArgumentList $Args -Wait -PassThru
+        $Arguments = "/install /quiet /norestart"
+        $Installer = Start-Process -FilePath $VSRedist -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
 
-        $Args = "/i `"$WebsocketMSI`" /l*v `"$env:WinDir\Logs\Software\WebSocket_MSI.log`" /quiet"
-        Write-Log -message "Running `"msiexec.exe $Args`"" -Source 'Main'
+        $Arguments = "/i `"$WebsocketMSI`" /l*v `"$env:WinDir\Logs\Software\WebSocket_MSI.log`" /quiet"
+        Write-Log -message "Running `"msiexec.exe $Arguments`"" -Source 'Main'
 
-        $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Args -Wait -PassThru
+        $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
 
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\Teams" -Name IsWVDEnvironment -Value 1 -Type DWord
 
         Write-Log -message "Starting installation of Microsoft Teams for all users." -Source 'Main'
          # Command line looks like: msiexec /i <msi_name> /l*v < install_logfile_name> ALLUSER=1
-        $Args = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1" 
-        Write-Log -message "Running `"msiexec.exe $Args`"" -Source 'Main'
-        $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Args -Wait -PassThru
+        $Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1" 
+        Write-Log -message "Running `"msiexec.exe $Arguments`"" -Source 'Main'
+        $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
         Write-Log -message "Completed $Script:Section Section." -Source 'Main'
 
@@ -876,9 +884,9 @@ Function Prepare-Image
         $installer = "msiexec.exe"
         $MSIfile = "$output" 
         Write-Log -message "Starting installation of Microsoft Edge Enterprise." -Source 'Main'
-        $Args = "/i `"$msifile`" /q" 
-        Write-Log -message "Running `"$installer $Args`"" -Source 'Main'
-        $Install = Start-Process -FilePath "$installer" -ArgumentList $Args -Wait -PassThru
+        $Arguments = "/i `"$msifile`" /q" 
+        Write-Log -message "Running `"$installer $Arguments`"" -Source 'Main'
+        $Install = Start-Process -FilePath "$installer" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "The exit code is $($Install.ExitCode)" -Source 'Main'
         Write-Log -Message "Complete $Script:Section script section." -Source 'Main'
 
@@ -893,6 +901,14 @@ Function Prepare-Image
     # Block domain joined machines from inadvertently getting Azure AD registered by users.
     Set-RegistryValue -Key 'HKLM:\Software\Policies\Microsoft\Windows\WorkplaceJoin' -Name BlockAADWorkplaceJoin -Type DWord -Value 1
 
+    #endregion
+
+    #region RemoveApps
+    If ($RemoveApps) {
+        $Script:Section='Remove Apps'
+        Write-Log "Now Removing Built-in Windows Apps." -Source 'Main'
+        & "$PSScriptRoot\RemoveApps\Remove-Apps.ps1"
+    }  
     #endregion
 
     #region WVD Image Settings
@@ -1113,6 +1129,7 @@ If ($DisplayForm)
             -EdgeInstall $EdgeInstall `
             -DisableUpdates $DisableUpdates `
             -CleanupImage $CleanupImage
+            -RemoveApps $RemoveApps
     })
 
     $ScriptTitle = New-Object system.Windows.Forms.Label
@@ -1300,5 +1317,6 @@ Else
         -TeamsInstall $TeamsInstall `
         -EdgeInstall $EdgeInstall `
         -DisableUpdates $DisableUpdates `
-        -CleanupImage $CleanupImage 
+        -CleanupImage $CleanupImage
+        -RemoveApps $RemoveApps
 }
