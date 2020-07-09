@@ -102,7 +102,7 @@ If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -
 [uri]$TeamsUrl = "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.12058/Teams_windows_x64.msi"
 [uri]$FSLogixUrl = "https://go.microsoft.com/fwlink/?linkid=2084562"
 [uri]$EdgeUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/10c99438-300d-44e2-b9d3-789023d3dc51/MicrosoftEdgeEnterpriseX64.msi"
-[uri]$EdgeTemplatesUrl ="http://dl.delivery.mp.microsoft.com/filestreamingservice/files/77969b35-d61e-4c50-8876-3b281c159a9d/MicrosoftEdgePolicyTemplates.cab"
+[uri]$EdgeTemplatesUrl ="http://dl.delivery.mp.microsoft.com/filestreamingservice/files/35489c34-cd12-4773-a512-d03351cb8a42/MicrosoftEdgePolicyTemplates.zip"
 
 #endregion
 
@@ -348,6 +348,7 @@ Function Write-Log
 		}
 	}
 }
+
 Function Set-RegistryValue
 {
 	[CmdletBinding()]
@@ -413,6 +414,7 @@ Function Set-RegistryValue
 	    }
     }
 }
+
 Function Download-File
 {
     [CmdletBinding()]
@@ -441,6 +443,7 @@ Function Download-File
         Write-Log -message "Download was successful. Final file size: `"$totalsize`" mb" -Source ${CmdletName}
     }
 }
+
 Function Update-LGPORegistryTxt
 {
 	Param (
@@ -501,6 +504,7 @@ Function Update-LGPORegistryTxt
     Add-Content -Path $Outfile -Value "$($ValueType):$RegistryData"
     Add-Content -Path $Outfile -Value ""
 }
+
 Function Execute-LGPO
 {
     Param (
@@ -537,6 +541,7 @@ Function Clean-Image
     Start-Process -FilePath cleanmgr.exe -ArgumentList "/sagerun:100" -Wait -PassThru
     
 }
+
 Function Prepare-Image
 {
     Param
@@ -864,20 +869,30 @@ Function Prepare-Image
         Write-Log -Message "Starting Microsoft Edge Enterprise Installation and Configuration in accordance with `"$ref`"." -Source 'Main'
 
         $dirTemplates = "$PSScriptRoot\Edge\Templates"
-        if (Test-Path $dirTemplates)
+
+        Write-Log "Now Downloading Edge Chromium Administrative Templates." -Source 'Main'
+        $output = "$PSScriptRoot\MicrosoftEdgePolicyTemplates.zip"
+        Download-File -url $EdgeTemplatesUrl -outputfile $output
+        $destPath = "$PSScriptRoot\EdgeTemplates"
+        Expand-Archive $output -DestinationPath $destpath -Force
+        Start-Sleep -Seconds 5
+        Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
+        $admx = Get-ChildItem "$destpath" -Filter "*.admx" -Recurse
+        $adml = Get-ChildItem "$destpath" -filter "*.adml" -Recurse
+        ForEach($file in $admx)
         {
-            Write-Log -message "Copying Group Policy ADMX/L files to PolicyDefinitions Folders." -Source 'Main'
-            Copy-Item -Path "$DirTemplates\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -force
-            Copy-Item -Path "$DirTemplates\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us" -force
+            Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions" -Force
+        }
+        ForEach($file in $adml)
+        {
+            Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
         }
         If ($DisableUpdates)
         {
             Write-Log -Message "Now disabling Edge Automatic Updates" -Source 'Main'
             Update-LGPORegistryTxt -scope 'Computer' -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue 'UpdateDefault' -RegistryType DWORD -RegistryData 0
         }
-        # Disable Edge Desktop Shortcut Creation
-        Write-Log -Message "Now disabling Edge Automatic Desktop Shortcut Creation." -Source 'Main'
-        Set-RegistryValue -Key "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name DisableEdgeDesktopShortcutCreation -Value 1 -Type Dword
+
         Write-Log "Now Downloading Enterprise Version of Edge from Microsoft." -Source 'Main'
         $output = "$PSScriptRoot\MicrosoftEdgeEnteprisex64.msi"
         Download-File -url $EdgeUrl -outputfile $output
@@ -1098,7 +1113,7 @@ If ($DisplayForm)
     $Execute.text = "Execute"
     $Execute.width = 655
     $Execute.height = 60
-    $Execute.location = New-Object System.Drawing.Point(20, 610)
+    $Execute.location = New-Object System.Drawing.Point(20, 648)
     $Execute.Font = 'Microsoft Sans Serif,18,style=Bold'
     $Execute.ForeColor = "#ffffff"
     $Execute.Add_Click({
@@ -1120,6 +1135,7 @@ If ($DisplayForm)
         $EdgeInstall = $InstallEdge.Checked
         $DisableUpdates = $DisableWU.Checked
         $CleanupImage = $RunCleanMgr.Checked
+        $RemoveApps = $AppRemove.Checked
         $WVDGoldenImagePrep.Close()
         Prepare-Image `
             -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
@@ -1128,7 +1144,7 @@ If ($DisplayForm)
             -TeamsInstall $TeamsInstall `
             -EdgeInstall $EdgeInstall `
             -DisableUpdates $DisableUpdates `
-            -CleanupImage $CleanupImage
+            -CleanupImage $CleanupImage `
             -RemoveApps $RemoveApps
     })
 
@@ -1284,12 +1300,20 @@ If ($DisplayForm)
     $DisableWU.location = New-Object System.Drawing.Point(48, 523)
     $DisableWU.Font = 'Microsoft Sans Serif,14'
 
+    $AppRemove = New-Object System.Windows.Forms.CheckBox
+    $AppRemove.text = "Remove inbox Windows 10 Apps (Adjust removeapps.xml)"
+    $AppRemove.AutoSize = $false
+    $AppRemove.Width = 550
+    $AppRemove.height = 30
+    $AppRemove.Location = New-Object System.Drawing.Point(48, 571)
+    $AppRemove.Font = 'Microsoft Sans Serif,14'
+    
     $RunCleanMgr = New-Object system.Windows.Forms.CheckBox
     $RunCleanMgr.text = "Run System Clean Up (CleanMgr.exe)"
     $RunCleanMgr.AutoSize = $false
     $RunCleanMgr.width = 400
     $RunCleanMgr.height = 30
-    $RunCleanMgr.location = New-Object System.Drawing.Point(48, 571)
+    $RunCleanMgr.location = New-Object System.Drawing.Point(48, 609)
     $RunCleanMgr.Font = 'Microsoft Sans Serif,14'
 
     ForEach ($Item in $DropdownArraySyncMonths) {
@@ -1304,7 +1328,7 @@ If ($DisplayForm)
         [void] $CalendarSyncMode.Items.Add($Item)
     }
 
-    $WVDGoldenImagePrep.controls.AddRange(@($Execute, $ScriptTitle, $CalendarSyncMode, $EmailCacheMonths, $CalSyncTime, $VHDPath, $TenantID, $InstallOffice365, $InstallFSLogix, $InstallOneDrive, $DisableWU, $InstallTeams, $InstallEdge, $RunCleanMgr, $LabelVHDLocation, $LabelAADTenant, $labelEmailCache, $labelCalSyncType, $labelCalSyncTime))
+    $WVDGoldenImagePrep.controls.AddRange(@($Execute, $ScriptTitle, $CalendarSyncMode, $EmailCacheMonths, $CalSyncTime, $VHDPath, $TenantID, $InstallOffice365, $InstallFSLogix, $InstallOneDrive, $DisableWU, $InstallTeams, $InstallEdge, $AppRemove, $RunCleanMgr, $LabelVHDLocation, $LabelAADTenant, $labelEmailCache, $labelCalSyncType, $labelCalSyncTime))
 
     [void]$WVDGoldenImagePrep.ShowDialog()
 }
@@ -1317,6 +1341,6 @@ Else
         -TeamsInstall $TeamsInstall `
         -EdgeInstall $EdgeInstall `
         -DisableUpdates $DisableUpdates `
-        -CleanupImage $CleanupImage
+        -CleanupImage $CleanupImage `
         -RemoveApps $RemoveApps
 }
