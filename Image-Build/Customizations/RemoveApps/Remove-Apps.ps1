@@ -166,7 +166,7 @@ function Get-OnlineCapabilities {
   [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 
   #New PSObject Template
-  $DismObjT = New-Object �TypeName PSObject -Property @{
+  $DismObjT = New-Object -TypeName PSObject -Property @{
     "Name"  = ""
     "State" = ""
   }
@@ -184,8 +184,6 @@ function Get-OnlineCapabilities {
 
   $DismOutput | Select-String -pattern "Capability Identity :", "State :" |
   ForEach-Object {
-
-
     if ($i % 2) {
 
       #Creating new object\Resetting for every item using template
