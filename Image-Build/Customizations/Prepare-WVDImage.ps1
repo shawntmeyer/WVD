@@ -405,7 +405,7 @@ Function Set-RegistryValue {
     }
 }
 
-Function Download-File {
+Function Get-InternetFile {
     [CmdletBinding()]
     Param (
         [Parameter(Mandatory = $true, Position = 0)]
@@ -431,7 +431,7 @@ Function Download-File {
         Write-Log -message "Download was successful. Final file size: `"$totalsize`" mb" -Source ${CmdletName}
     }
 }
-Function Update-LGPORegistryTxt {
+Function Update-LocalGPOTextFile {
     Param (
         [Parameter(Mandatory = $true, Position = 0)]
         [ValidateSet('Computer', 'User')]
@@ -486,7 +486,7 @@ Function Update-LGPORegistryTxt {
     Add-Content -Path $Outfile -Value ""
 }
 
-Function Execute-LGPO {
+Function Invoke-LGPO {
     Param (
         [string]$InputDir = "$Script:LogDir\LGPO",
         [string]$SearchTerm = "$Script:Section"
@@ -503,7 +503,7 @@ Function Execute-LGPO {
     }
 }
 
-Function Clean-Image {
+Function Invoke-CleanMgr {
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     Write-Log -Message "Now Cleaning image using Disk Cleanup wizard." -Source ${CmdletName}
     $RegKeyParent = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\"
@@ -520,7 +520,7 @@ Function Clean-Image {
     
 }
 
-Function Prepare-Image {
+Function Invoke-ImageCustomization {
     Param
     (
         #Determine if Azure MarketPlace Image. If it is then do not complete the generic VHD image prep steps.
@@ -609,11 +609,11 @@ Function Prepare-Image {
 
         Write-Log -Message "Update User LGPO registry text file." -Source 'Main'
         # Turn off insider notifications
-        Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\policies\microsoft\office\16.0\common' -RegistryValue InsiderSlabBehavior -RegistryType DWord -RegistryData 2
+        Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\policies\microsoft\office\16.0\common' -RegistryValue InsiderSlabBehavior -RegistryType DWord -RegistryData 2
 
         If (($EmailCacheTime -ne 'Not Configured') -or ($CalendarSync -ne 'Not Configured') -or ($CalendarSyncMonths -ne 'Not Configured')) {
             # Enable Outlook Cached Mode
-            Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'Enable' -RegistryType DWord -RegistryData 1
+            Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'Enable' -RegistryType DWord -RegistryData 1
         }
         
         # Cached Exchange Mode Settings: https://support.microsoft.com/en-us/help/3115009/update-lets-administrators-set-additional-default-sync-slider-windows
@@ -629,8 +629,8 @@ Function Prepare-Image {
         If ($EmailCacheTime -eq '60 months') { $SyncWindowSetting = 60 }
         If ($EmailCacheTime -eq 'All') { $SyncWindowSetting = 0; $SyncWindowSettingDays = 0 }
 
-        If ($SyncWindowSetting) { Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSetting' -RegistryType DWORD -RegistryData $SyncWindowSetting }
-        If ($SyncWindowSettingDays) { Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSettingDays' -RegistryType DWORD -RegistryData $SyncWindowSettingDays }
+        If ($SyncWindowSetting) { Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSetting' -RegistryType DWORD -RegistryData $SyncWindowSetting }
+        If ($SyncWindowSettingDays) { Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSettingDays' -RegistryType DWORD -RegistryData $SyncWindowSettingDays }
 
         # Calendar Sync Settings: https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
         If ($CalendarSync -eq 'Inactive') { $CalendarSyncWindowSetting = 0; }
@@ -648,18 +648,18 @@ Function Prepare-Image {
         Write-Log -Message "Update Computer LGPO registry text file." -Source 'Main'
         $RegistryKeyPath = 'SOFTWARE\Policies\Microsoft\Office\16.0\Common\OfficeUpdate'
         # Hide Office Update Notifications
-        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue HideUpdateNotifications -RegistryType DWord -RegistryData 1
+        Update-LocalGPOTextFile -scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue HideUpdateNotifications -RegistryType DWord -RegistryData 1
         # Hide and Disable Updates
-        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue HideEnableDisableUpdates -RegistryType DWord -RegistryData 1
+        Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue HideEnableDisableUpdates -RegistryType DWord -RegistryData 1
         If ($DisableUpdates) {
             # Disable Updates            
-            Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 0
+            Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 0
         }
         else {
             # Enable Updates
-            Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 1
+            Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 1
         }
-        Execute-LGPO -SearchTerm "$Script:Section"
+        Invoke-LGPO -SearchTerm "$Script:Section"
         Write-Log -Message "Completed the $Script:Section Section" -Source 'Main'
 
     }
@@ -673,7 +673,7 @@ Function Prepare-Image {
         Write-Log -Message "Starting OneDrive installation and configuration in accordance with `"$ref`"." -Source 'Main'
 
         $output = "$PSScriptRoot\onedrivesetup.exe"
-        Download-File -url $OneDriveURL -outputfile $output
+        Get-InternetFile -url $OneDriveURL -outputfile $output
  
         Write-Log -Message "Uninstalling the OneDrive per-user installations." -Source 'Main'
 
@@ -710,16 +710,16 @@ Function Prepare-Image {
 
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name OneDrive -Value "C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe /background" -Type String
         Write-Log -Message "Now Configuring the Update Ring to Production" -Source 'Main'
-        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'GPOSetUpdateRing' -RegistryType DWORD -RegistryData 5
+        Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'GPOSetUpdateRing' -RegistryType DWORD -RegistryData 5
         Write-Log -Message "Now Configuring OneDrive to automatically sign-in with logged on user credentials." -Source 'Main'
-        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'SilentAccountConfig' -RegistryType DWord -RegistryData 1
+        Update-LocalGPOTextFile -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'SilentAccountConfig' -RegistryType DWord -RegistryData 1
         Write-Log -Message "Now Enabling Files on Demand" -Source 'Main'
-        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'FilesOnDemandEnabled' -RegistryType DWORD -RegistryData 1
+        Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'FilesOnDemandEnabled' -RegistryType DWORD -RegistryData 1
         If ($AADTenantID -and $AADTenantID -ne '') {
             Write-Log "Now applying OneDrive for Business Known Folder Move Silent Configuration Settings." -Source 'Main'
-            Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue 'KFMSilentOptIn' -RegistryType String -RegistryData "$AADTenantID"
+            Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue 'KFMSilentOptIn' -RegistryType String -RegistryData "$AADTenantID"
         }
-        Execute-LGPO -SearchTerm "$Script:Section"
+        Invoke-LGPO -SearchTerm "$Script:Section"
         Write-Log -Message "Complete $Script:Section Section." -Source 'Main'
     }
 
@@ -736,13 +736,13 @@ Function Prepare-Image {
 
         Write-Log -Message "Starting Teams Installation and Configuration in accordance with `"$ref`"." -Source 'Main'
         $VSRedist = "$PSScriptRoot\VSRedist.exe"
-        Download-File -url $VSRedistUrl -outputfile $VSRedist
+        Get-InternetFile -url $VSRedistUrl -outputfile $VSRedist
 
         $WebsocketMSI = "$PSScriptRoot\Websocket.msi"
-        Download-File -url $WebSocketUrl -outputfile $WebSocketMSI
+        Get-InternetFile -url $WebSocketUrl -outputfile $WebSocketMSI
 
         $TeamsMSI = "$PSScriptRoot\Teams_Windows_x64.msi"
-        Download-File -url $TeamsUrl -outputfile $TeamsMSI
+        Get-InternetFile -url $TeamsUrl -outputfile $TeamsMSI
  
         Write-Log -message "Installing the latest VS Redistributables" -Source 'Main'
         $Arguments = "/install /quiet /norestart"
@@ -776,7 +776,7 @@ Function Prepare-Image {
         Write-Log "Starting FSLogix Agent Installation and Configuration." -Source 'Main'
         Write-Log "Downloading FSLogix Agent from Microsoft." -Source 'Main'
         $output = "$PSScriptRoot\fslogix.zip"
-        Download-File -url $FSLogixUrl -outputfile $output
+        Get-InternetFile -url $FSLogixUrl -outputfile $output
         Write-Log -message "Extracting FSLogix Agent from zip." -Source 'Main'
         $destpath = "$PSScriptRoot\FSLogix"
         Expand-Archive $output -DestinationPath $destpath -Force
@@ -814,9 +814,9 @@ Function Prepare-Image {
             Write-Log -Message "Configuring VHD Folder name to begin with username instead of SID"
             Set-RegistryValue -Key $RegistryKey -Name 'FlipFlopProfileDirectoryName' -Value 1 -Type DWord
             Write-Log -Message "Configuring FSLogix Office Container to include Office Activation Information."
-            Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'Software\Policies\FSLogix\ODFC' -RegistryValue IncludeOfficeActivation -RegistryType DWord -RegistryData 1
+            Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'Software\Policies\FSLogix\ODFC' -RegistryValue IncludeOfficeActivation -RegistryType DWord -RegistryData 1
         }
-        Execute-LGPO -SearchTerm "$Script:Section"
+        Invoke-LGPO -SearchTerm "$Script:Section"
         Write-Log -Message "Completed $Script:Section script section." -Source 'Main'
     }
 
@@ -834,7 +834,7 @@ Function Prepare-Image {
 
         Write-Log "Now Downloading Edge Chromium Administrative Templates." -Source 'Main'
         $output = "$PSScriptRoot\MicrosoftEdgePolicyTemplates.zip"
-        Download-File -url $EdgeTemplatesUrl -outputfile $output
+        Get-InternetFile -url $EdgeTemplatesUrl -outputfile $output
         $destPath = "$PSScriptRoot\EdgeTemplates"
         Expand-Archive $output -DestinationPath $destpath -Force
         Start-Sleep -Seconds 5
@@ -849,12 +849,12 @@ Function Prepare-Image {
         }
         If ($DisableUpdates) {
             Write-Log -Message "Now disabling Edge Automatic Updates" -Source 'Main'
-            Update-LGPORegistryTxt -scope 'Computer' -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue 'UpdateDefault' -RegistryType DWORD -RegistryData 0
+            Update-LocalGPOTextFile -scope 'Computer' -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue 'UpdateDefault' -RegistryType DWORD -RegistryData 0
         }
 
         Write-Log "Now Downloading Enterprise Version of Edge from Microsoft." -Source 'Main'
         $output = "$PSScriptRoot\MicrosoftEdgeEnteprisex64.msi"
-        Download-File -url $EdgeUrl -outputfile $output
+        Get-InternetFile -url $EdgeUrl -outputfile $output
         $installer = "msiexec.exe"
         $MSIfile = "$output" 
         Write-Log -message "Starting installation of Microsoft Edge Enterprise." -Source 'Main'
@@ -895,14 +895,14 @@ Function Prepare-Image {
 
     If ($DisableUpdates) {
         Write-Log "Disabling Windows Updates via Group Policy setting" -Source 'Main'
-        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -RegistryValue 'NoAutoUpdate' -RegistryType 'Dword' -RegistryData 1
+        Update-LocalGPOTextFile -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -RegistryValue 'NoAutoUpdate' -RegistryType 'Dword' -RegistryData 1
     }
     Write-Log "Enabling Time Zone Redirection from Client to Session Host." -Source 'Main'
-    Update-LGPORegistryTxt -scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -RegistryValue 'fEnableTimeZoneRedirection' -RegistryType 'DWord' -RegistryData 1
+    Update-LocalGPOTextFile -scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -RegistryValue 'fEnableTimeZoneRedirection' -RegistryType 'DWord' -RegistryData 1
 
     Write-Log "Disabling Storage Sense GPO" -Source 'Main'
 
-    Update-LGPORegistrytxt -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows\StorageSense' -RegistryValue 'AllowStorageSenseGlobal' -RegistryType 'DWord' -RegistryData 0
+    Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows\StorageSense' -RegistryValue 'AllowStorageSenseGlobal' -RegistryType 'DWord' -RegistryData 0
 
     # Fix issues with Doctor Watson Crashes
     # List of Registry Values from https://docs.microsoft.com/en-us/windows/win32/wer/wer-settings
@@ -927,7 +927,7 @@ Function Prepare-Image {
     Set-RegistryValue -Key $RegistryKey -Name MaxXResolution -Type DWord -Value 5120
     Set-RegistryValue -Key $RegistryKey -Name MaxYResolution -Type DWord -Value 2880
 
-    Execute-LGPO -SearchTerm "$Script:Section"
+    Invoke-LGPO -SearchTerm "$Script:Section"
     Write-Log "Completed $Script:Section script section." -Source 'Main'
 
     #endregion
@@ -969,7 +969,7 @@ Function Prepare-Image {
     
         # Ensure RDP is enabled
         Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Type DWord
-        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue fDenyTSConnections -RegistryType DWord -RegistryData 0
+        Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue fDenyTSConnections -RegistryType DWord -RegistryData 0
     
         # Set RDP Port to 3389 - Unnecessary for WVD due to reverse connect, but helpful for backdoor administration with a jump box
         Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "PortNumber" -Value 3389 -Type DWord
@@ -985,12 +985,12 @@ Function Prepare-Image {
         Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "fAllowSecProtocolNegotiation" -Value 1 -Type DWord
     
         # Set RDP keep-alive value
-        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue 'KeepAliveEnable' -RegistryType DWord -RegistryData 1
-        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue 'KeepAliveInterval' -RegistryType DWord -RegistryData 1
+        Update-LocalGPOTextFile -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue 'KeepAliveEnable' -RegistryType DWord -RegistryData 1
+        Update-LocalGPOTextFile -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue 'KeepAliveInterval' -RegistryType DWord -RegistryData 1
         Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "KeepAliveTimeout" -Value 1 -Type DWord
     
         # Reconnect
-        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue fDisableAutoReconnect -RegistryType DWord -RegistryData 0
+        Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue fDisableAutoReconnect -RegistryType DWord -RegistryData 0
         Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "fInheritReconnectSame" -Value 1 -Type DWord
         Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "fReconnectSame" -Value 0 -Type DWord
     
@@ -1020,7 +1020,7 @@ Function Prepare-Image {
         New-NetFirewallRule -DisplayName "AzurePlatform" -Direction Inbound -RemoteAddress 168.63.129.16 -Profile Any -Action Allow -EdgeTraversalPolicy Allow
         New-NetFirewallRule -DisplayName "AzurePlatform" -Direction Outbound -RemoteAddress 168.63.129.16 -Profile Any -Action Allow
     
-        Execute-LGPO -SearchTerm "$Script:Section"
+        Invoke-LGPO -SearchTerm "$Script:Section"
     
         Write-Log "Completed $Script:Section script section." -Source 'Main'
 
@@ -1031,13 +1031,10 @@ Function Prepare-Image {
     Write-Log "Outputing Group Policy Results and Local GPO Backup to `"$Script:LogDir\LGPO`"" -Source 'Main'
     Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -PassThru -Wait
     Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -PassThru -Wait
-    If ( $CleanupImage ) { Clean-Image }
+    If ( $CleanupImage ) { Invoke-CleanMgr }
     Write-Log -message "$scriptFileName completed." -source 'Main'
     Remove-Item "$PSScriptRoot\*" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item "$PSScriptRoot" -Recurse -force -ErrorAction SilentlyContinue
-
-
-
 }
 
 #endregion
@@ -1093,7 +1090,7 @@ If ($DisplayForm) {
             $CleanupImage = $RunCleanMgr.Checked
             $RemoveApps = $AppRemove.Checked
             $WVDGoldenImagePrep.Close()
-            Prepare-Image `
+            Invoke-ImageCustomization `
                 -MarketPlaceSource $MarketPlaceSource `
                 -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
                 -OneDriveInstall $OneDriveInstall -AADTenantID $AADTenantID `
@@ -1299,7 +1296,7 @@ If ($DisplayForm) {
     [void]$WVDGoldenImagePrep.ShowDialog()
 }
 Else {
-    Prepare-Image `
+    Invoke-ImageCustomization `
         -MarketPlaceSource $MarketPlaceSource `
         -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
         -OneDriveInstall $OneDriveInstall -AADTenantID $AADTenantID `
