@@ -999,7 +999,7 @@ Function Prepare-Image {
 
     # Allow WinRM
     Set-RegistryValue -Key 'HKLM:\System\CurrentControlSet\Services\WinRM' -Name Start -Value 2 -Type DWord
-    Start-Service -Name WinRM
+    #Start-Service -Name WinRM
     Enable-PSRemoting -force
     Set-NetFirewallRule -DisplayName "Windows Remote Management (HTTP-In)" -Enabled True
 
