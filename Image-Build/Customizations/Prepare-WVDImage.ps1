@@ -27,6 +27,10 @@ Param
     [Parameter(ParameterSetName = 'Manual')]
     [switch]$DisplayForm,
 
+    #Determine if Azure MarketPlace Image. If it is then do not complete the generic VHD image prep steps.
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
+    [bool]$MarketPlaceSource = $true,
+
     #install Office 365
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [bool]$Office365Install = $true,
@@ -427,7 +431,6 @@ Function Download-File {
         Write-Log -message "Download was successful. Final file size: `"$totalsize`" mb" -Source ${CmdletName}
     }
 }
-
 Function Update-LGPORegistryTxt {
     Param (
         [Parameter(Mandatory = $true, Position = 0)]
@@ -520,6 +523,10 @@ Function Clean-Image {
 Function Prepare-Image {
     Param
     (
+        #Determine if Azure MarketPlace Image. If it is then do not complete the generic VHD image prep steps.
+        [Parameter(Mandatory = $false)]
+        [bool]$MarketPlaceSource,
+
         #install Office 365
         [Parameter(Mandatory = $false)]
         [bool]$Office365Install,
@@ -927,94 +934,97 @@ Function Prepare-Image {
 
     #region Generic VHD Image Prep
 
-    $Script:Section = 'Azure VHD Image Settings'
+    If (!$MarketPlaceSource) {
+        $Script:Section = 'Azure VHD Image Settings'
 
-    # The following steps are from: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/prepare-for-upload-vhd-image
-    Write-Log -Message "Performing Configuration spelled out in `"https://docs.microsoft.com/en-us/azure/virtual-machines/windows/prepare-for-upload-vhd-image`"." -Source 'Main'
+        # The following steps are from: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/prepare-for-upload-vhd-image
+        Write-Log -Message "Performing Configuration spelled out in `"https://docs.microsoft.com/en-us/azure/virtual-machines/windows/prepare-for-upload-vhd-image`"." -Source 'Main'
+    
+        # Remove the WinHTTP proxy
+        netsh winhttp reset proxy
+    
+        # Set Coordinated Universal Time (UTC) time for Windows and the startup type of the Windows Time (w32time) service to Automatically
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\TimeZoneInformation' -Name RealTimeIsUniversal -Value 1 -Type DWord
+        Set-Service -Name w32time -StartupType Automatic
+    
+        # Set the power profile to the High Performance
+        powercfg /setactive SCHEME_MIN
+    
+        # Make sure that the environment variables TEMP and TMP are set to their default values
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -Name 'TEMP' -Value "%SystemRoot%\TEMP" -Type ExpandString
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -Name 'TMP' -Value "%SystemRoot%\TEMP" -Type ExpandString
+    
+        # Set Windows services to defaults
+        Get-Service -Name bfe | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
+        Get-Service -Name dhcp | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
+        Get-Service -Name dnscache | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
+        Get-Service -Name IKEEXT | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
+        Get-Service -Name iphlpsvc | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
+        Get-Service -Name netlogon | Where-Object { $_.StartType -ne 'Manual' } | Set-Service -StartupType 'Manual'
+        Get-Service -Name netman | Where-Object { $_.StartType -ne 'Manual' } | Set-Service -StartupType 'Manual'
+        Get-Service -Name nsi | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
+        Get-Service -Name TermService | Where-Object { $_.StartType -ne 'Manual' } | Set-Service -StartupType 'Manual'
+        Get-Service -Name MpsSvc | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
+        Get-Service -Name RemoteRegistry | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
+    
+        # Ensure RDP is enabled
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Type DWord
+        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue fDenyTSConnections -RegistryType DWord -RegistryData 0
+    
+        # Set RDP Port to 3389 - Unnecessary for WVD due to reverse connect, but helpful for backdoor administration with a jump box
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "PortNumber" -Value 3389 -Type DWord
+    
+        # Listener is listening on every network interface
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "LanAdapter" -Value 0 -Type DWord
+    
+        # Configure NLA
+        # require user authentication for remote connections to the RD Session Host server by using Network Level Authentication
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1 -Type DWord
+        # Enforce the strongest security layer supported by the client
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "SecurityLayer" -Value 1 -Type DWord
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "fAllowSecProtocolNegotiation" -Value 1 -Type DWord
+    
+        # Set RDP keep-alive value
+        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue 'KeepAliveEnable' -RegistryType DWord -RegistryData 1
+        Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue 'KeepAliveInterval' -RegistryType DWord -RegistryData 1
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "KeepAliveTimeout" -Value 1 -Type DWord
+    
+        # Reconnect
+        Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue fDisableAutoReconnect -RegistryType DWord -RegistryData 0
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "fInheritReconnectSame" -Value 1 -Type DWord
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "fReconnectSame" -Value 0 -Type DWord
+    
+        # Limit number of concurrent sessions
+        Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "MaxInstanceCount" -Value 4294967295 -Type DWord
+    
+        # Remove any self signed certs
+        if ((Get-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp').Property -contains "SSLCertificateSHA1Hash") {
+            Remove-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SSLCertificateSHA1Hash" -Force
+        }
+    
+        # Turn on Firewall
+        Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled True
+    
+        # Allow WinRM
+        Set-RegistryValue -Key 'HKLM:\System\CurrentControlSet\Services\WinRM' -Name Start -Value 2 -Type DWord
+        #Start-Service -Name WinRM
+        Enable-PSRemoting -force
+        Set-NetFirewallRule -DisplayName "Windows Remote Management (HTTP-In)" -Enabled True
+    
+        # Allow RDP
+        Set-NetFirewallRule -DisplayGroup "Remote Desktop" -Enabled True
+    
+        # Enable File and Printer sharing for ping
+        Set-NetFirewallRule -DisplayName "File and Printer Sharing (Echo Request - ICMPv4-In)" -Enabled True
+    
+        New-NetFirewallRule -DisplayName "AzurePlatform" -Direction Inbound -RemoteAddress 168.63.129.16 -Profile Any -Action Allow -EdgeTraversalPolicy Allow
+        New-NetFirewallRule -DisplayName "AzurePlatform" -Direction Outbound -RemoteAddress 168.63.129.16 -Profile Any -Action Allow
+    
+        Execute-LGPO -SearchTerm "$Script:Section"
+    
+        Write-Log "Completed $Script:Section script section." -Source 'Main'
 
-    # Remove the WinHTTP proxy
-    netsh winhttp reset proxy
-
-    # Set Coordinated Universal Time (UTC) time for Windows and the startup type of the Windows Time (w32time) service to Automatically
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\TimeZoneInformation' -Name RealTimeIsUniversal -Value 1 -Type DWord
-    Set-Service -Name w32time -StartupType Automatic
-
-    # Set the power profile to the High Performance
-    powercfg /setactive SCHEME_MIN
-
-    # Make sure that the environment variables TEMP and TMP are set to their default values
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -Name 'TEMP' -Value "%SystemRoot%\TEMP" -Type ExpandString
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -Name 'TMP' -Value "%SystemRoot%\TEMP" -Type ExpandString
-
-    # Set Windows services to defaults
-    Get-Service -Name bfe | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
-    Get-Service -Name dhcp | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
-    Get-Service -Name dnscache | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
-    Get-Service -Name IKEEXT | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
-    Get-Service -Name iphlpsvc | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
-    Get-Service -Name netlogon | Where-Object { $_.StartType -ne 'Manual' } | Set-Service -StartupType 'Manual'
-    Get-Service -Name netman | Where-Object { $_.StartType -ne 'Manual' } | Set-Service -StartupType 'Manual'
-    Get-Service -Name nsi | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
-    Get-Service -Name TermService | Where-Object { $_.StartType -ne 'Manual' } | Set-Service -StartupType 'Manual'
-    Get-Service -Name MpsSvc | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
-    Get-Service -Name RemoteRegistry | Where-Object { $_.StartType -ne 'Automatic' } | Set-Service -StartupType 'Automatic'
-
-    # Ensure RDP is enabled
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Type DWord
-    Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue fDenyTSConnections -RegistryType DWord -RegistryData 0
-
-    # Set RDP Port to 3389 - Unnecessary for WVD due to reverse connect, but helpful for backdoor administration with a jump box
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "PortNumber" -Value 3389 -Type DWord
-
-    # Listener is listening on every network interface
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "LanAdapter" -Value 0 -Type DWord
-
-    # Configure NLA
-    # require user authentication for remote connections to the RD Session Host server by using Network Level Authentication
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "UserAuthentication" -Value 1 -Type DWord
-    # Enforce the strongest security layer supported by the client
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "SecurityLayer" -Value 1 -Type DWord
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -name "fAllowSecProtocolNegotiation" -Value 1 -Type DWord
-
-    # Set RDP keep-alive value
-    Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue 'KeepAliveEnable' -RegistryType DWord -RegistryData 1
-    Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue 'KeepAliveInterval' -RegistryType DWord -RegistryData 1
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "KeepAliveTimeout" -Value 1 -Type DWord
-
-    # Reconnect
-    Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services' -RegistryValue fDisableAutoReconnect -RegistryType DWord -RegistryData 0
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "fInheritReconnectSame" -Value 1 -Type DWord
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "fReconnectSame" -Value 0 -Type DWord
-
-    # Limit number of concurrent sessions
-    Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "MaxInstanceCount" -Value 4294967295 -Type DWord
-
-    # Remove any self signed certs
-    if ((Get-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp').Property -contains "SSLCertificateSHA1Hash") {
-        Remove-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SSLCertificateSHA1Hash" -Force
     }
-
-    # Turn on Firewall
-    Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled True
-
-    # Allow WinRM
-    Set-RegistryValue -Key 'HKLM:\System\CurrentControlSet\Services\WinRM' -Name Start -Value 2 -Type DWord
-    #Start-Service -Name WinRM
-    Enable-PSRemoting -force
-    Set-NetFirewallRule -DisplayName "Windows Remote Management (HTTP-In)" -Enabled True
-
-    # Allow RDP
-    Set-NetFirewallRule -DisplayGroup "Remote Desktop" -Enabled True
-
-    # Enable File and Printer sharing for ping
-    Set-NetFirewallRule -DisplayName "File and Printer Sharing (Echo Request - ICMPv4-In)" -Enabled True
-
-    New-NetFirewallRule -DisplayName "AzurePlatform" -Direction Inbound -RemoteAddress 168.63.129.16 -Profile Any -Action Allow -EdgeTraversalPolicy Allow
-    New-NetFirewallRule -DisplayName "AzurePlatform" -Direction Outbound -RemoteAddress 168.63.129.16 -Profile Any -Action Allow
-
-    Execute-LGPO -SearchTerm "$Script:Section"
-
-    Write-Log "Completed $Script:Section script section." -Source 'Main'
     #endregion
 
     $Script:Section = 'Cleanup'
@@ -1060,10 +1070,11 @@ If ($DisplayForm) {
     $Execute.text = "Execute"
     $Execute.width = 655
     $Execute.height = 60
-    $Execute.location = New-Object System.Drawing.Point(20, 648)
+    $Execute.location = New-Object System.Drawing.Point(20, 670)
     $Execute.Font = 'Microsoft Sans Serif,18,style=Bold'
     $Execute.ForeColor = "#ffffff"
     $Execute.Add_Click( {
+            $MarketPlaceSource = $MarketPlaceImage.Checked
             $Office365Install = $InstallOffice365.Checked
             $EmailCacheTime = $EmailCacheMonths.text
             $CalendarSync = $CalendarSyncMode.text
@@ -1083,6 +1094,7 @@ If ($DisplayForm) {
             $RemoveApps = $AppRemove.Checked
             $WVDGoldenImagePrep.Close()
             Prepare-Image `
+                -MarketPlaceSource $MarketPlaceSource `
                 -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
                 -OneDriveInstall $OneDriveInstall -AADTenantID $AADTenantID `
                 -FSLogixInstall $FSLogixInstall -FSLogixVHDPath $FSLogixVHDPath `
@@ -1094,19 +1106,28 @@ If ($DisplayForm) {
         })
 
     $ScriptTitle = New-Object system.Windows.Forms.Label
-    $ScriptTitle.text = "WVD Golden VHD Prep Script"
+    $ScriptTitle.text = "WVD Golden Image Preparation"
     $ScriptTitle.AutoSize = $true
     $ScriptTitle.width = 25
     $ScriptTitle.height = 10
-    $ScriptTitle.location = New-Object System.Drawing.Point(63, 47)
+    $ScriptTitle.location = New-Object System.Drawing.Point(40, 40)
     $ScriptTitle.Font = 'Microsoft Sans Serif,30,style=Bold'
+
+    $MarketPlaceImage = New-Object system.Windows.Forms.CheckBox
+    $MarketPlaceImage.text = "Source image is from Azure Marketplace"
+    $MarketPlaceImage.AutoSize = $false
+    $MarketPlaceImage.width = 500
+    $MarketPlaceImage.height = 30
+    $MarketPlaceImage.location = New-Object System.Drawing.Point(30, 110)
+    $MarketPlaceImage.Font = 'Microsoft Sans Serif,14'
+    $MarketPlaceImage.Checked = $true
 
     $InstallOffice365 = New-Object system.Windows.Forms.CheckBox
     $InstallOffice365.text = "Install Office 365 ProPlus"
     $InstallOffice365.AutoSize = $false
-    $InstallOffice365.width = 173
+    $InstallOffice365.width = 300
     $InstallOffice365.height = 30
-    $InstallOffice365.location = New-Object System.Drawing.Point(48, 142)
+    $InstallOffice365.location = New-Object System.Drawing.Point(30, 140)
     $InstallOffice365.Font = 'Microsoft Sans Serif,14'
 
     $InstallOffice365.Add_CheckStateChanged( {
@@ -1120,14 +1141,14 @@ If ($DisplayForm) {
     $labelEmailCache.AutoSize = $true
     $labelEmailCache.width = 25
     $labelEmailCache.height = 10
-    $labelEmailCache.location = New-Object System.Drawing.Point(64, 170)
+    $labelEmailCache.location = New-Object System.Drawing.Point(46, 170)
     $labelEmailCache.Font = 'Microsoft Sans Serif,12'
 
     $EmailCacheMonths = New-Object system.Windows.Forms.ComboBox
     $EmailCacheMonths.text = "1 month"
-    $EmailCacheMonths.width = 120
+    $EmailCacheMonths.width = 180
     $EmailCacheMonths.height = 29
-    $EmailCacheMonths.location = New-Object System.Drawing.Point(64, 205)
+    $EmailCacheMonths.location = New-Object System.Drawing.Point(46, 200)
     $EmailCacheMonths.Font = 'Microsoft Sans Serif,12'
     $EmailCacheMonths.Enabled = $false
 
@@ -1136,14 +1157,14 @@ If ($DisplayForm) {
     $labelCalSyncType.AutoSize = $true
     $labelCalSyncType.width = 25
     $labelCalSyncType.height = 10
-    $labelCalSyncType.location = New-Object System.Drawing.Point(203, 170)
+    $labelCalSyncType.location = New-Object System.Drawing.Point(250, 170)
     $labelCalSyncType.Font = 'Microsoft Sans Serif,12'
 
     $CalendarSyncMode = New-Object system.Windows.Forms.ComboBox
     $CalendarSyncMode.text = "Primary Calendar Only"
     $CalendarSyncMode.width = 180
     $CalendarSyncMode.height = 29
-    $CalendarSyncMode.location = New-Object System.Drawing.Point(203, 205)
+    $CalendarSyncMode.location = New-Object System.Drawing.Point(250, 200)
     $CalendarSyncMode.Font = 'Microsoft Sans Serif,12'
     $CalendarSyncMode.Enabled = $false
 
@@ -1152,14 +1173,14 @@ If ($DisplayForm) {
     $labelCalSyncTime.AutoSize = $true
     $labelCalSyncTime.width = 25
     $labelCalSyncTime.height = 10
-    $labelCalSyncTime.location = New-Object System.Drawing.Point(410, 170)
+    $labelCalSyncTime.location = New-Object System.Drawing.Point(450, 170)
     $labelCalSyncTime.Font = 'Microsoft Sans Serif,12'
 
     $CalSyncTime = New-Object system.Windows.Forms.ComboBox
     $CalSyncTime.text = "1"
-    $CalSyncTime.width = 120
+    $CalSyncTime.width = 180
     $CalSyncTime.height = 29
-    $CalSyncTime.location = New-Object System.Drawing.Point(410, 205)
+    $CalSyncTime.location = New-Object System.Drawing.Point(450, 200)
     $CalSyncTime.Font = 'Microsoft Sans Serif,12'
     $CalSyncTime.Enabled = $false
 
@@ -1168,7 +1189,7 @@ If ($DisplayForm) {
     $InstallFSLogix.AutoSize = $false
     $InstallFSLogix.width = 250
     $InstallFSLogix.height = 30
-    $InstallFSLogix.location = New-Object System.Drawing.Point(48, 250)
+    $InstallFSLogix.location = New-Object System.Drawing.Point(30, 240)
     $InstallFSLogix.Font = 'Microsoft Sans Serif,14'
 
     $InstallFSLogix.Add_CheckStateChanged( {
@@ -1180,7 +1201,7 @@ If ($DisplayForm) {
     $LabelVHDLocation.AutoSize = $true
     $LabelVHDLocation.width = 25
     $LabelVHDLocation.height = 20
-    $LabelVHDLocation.location = New-Object System.Drawing.Point(64, 295)
+    $LabelVHDLocation.location = New-Object System.Drawing.Point(46, 270)
     $LabelVHDLocation.Font = 'Microsoft Sans Serif,12'
 
     $VHDPath = New-Object system.Windows.Forms.TextBox
@@ -1188,7 +1209,7 @@ If ($DisplayForm) {
     $VHDPath.text = "\\Server\ShareName (Clear to not set)"
     $VHDPath.width = 390
     $VHDPath.height = 20
-    $VHDPath.location = New-Object System.Drawing.Point(270, 295)
+    $VHDPath.location = New-Object System.Drawing.Point(270, 270)
     $VHDPath.Font = 'Microsoft Sans Serif,12'
     $VHDPath.Enabled = $false
 
@@ -1197,7 +1218,7 @@ If ($DisplayForm) {
     $InstallOneDrive.AutoSize = $false
     $InstallOneDrive.width = 400
     $InstallOneDrive.height = 30
-    $InstallOneDrive.location = New-Object System.Drawing.Point(48, 340)
+    $InstallOneDrive.location = New-Object System.Drawing.Point(30, 300)
     $InstallOneDrive.Font = 'Microsoft Sans Serif,14'
 
     $InstallOneDrive.Add_CheckStateChanged( {
@@ -1207,17 +1228,17 @@ If ($DisplayForm) {
     $LabelAADTenant = New-Object system.Windows.Forms.Label
     $LabelAADTenant.text = "AAD Tenant ID (Configures KFM)"
     $LabelAADTenant.AutoSize = $true
-    $LabelAADTenant.width = 25
+    $LabelAADTenant.width = 60
     $LabelAADTenant.height = 20
-    $LabelAADTenant.location = New-Object System.Drawing.Point(64, 385)
+    $LabelAADTenant.location = New-Object System.Drawing.Point(46, 330)
     $LabelAADTenant.Font = 'Microsoft Sans Serif,12'
 
     $TenantID = New-Object system.Windows.Forms.TextBox
     $TenantID.multiline = $false
-    $TenantID.text = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXX (Clear to not set)"
-    $TenantID.width = 409
+    $TenantID.text = "include '-'s (Clear to not set)"
+    $TenantID.width = 300
     $TenantID.height = 20
-    $TenantID.location = New-Object System.Drawing.Point(251, 385)
+    $TenantID.location = New-Object System.Drawing.Point(300, 330)
     $TenantID.Font = 'Microsoft Sans Serif,12'
     $TenantID.Enabled = $false
 
@@ -1226,7 +1247,7 @@ If ($DisplayForm) {
     $InstallTeams.AutoSize = $false
     $InstallTeams.width = 400
     $InstallTeams.height = 30
-    $InstallTeams.location = New-Object System.Drawing.Point(48, 433)
+    $InstallTeams.location = New-Object System.Drawing.Point(30, 360)
     $InstallTeams.Font = 'Microsoft Sans Serif,14'
 
     $InstallEdge = New-Object system.Windows.Forms.CheckBox
@@ -1234,7 +1255,7 @@ If ($DisplayForm) {
     $InstallEdge.AutoSize = $false
     $InstallEdge.width = 400
     $InstallEdge.height = 30
-    $InstallEdge.location = New-Object System.Drawing.Point(48, 480)
+    $InstallEdge.location = New-Object System.Drawing.Point(30, 390)
     $InstallEdge.Font = 'Microsoft Sans Serif,14'
 
     $DisableWU = New-Object system.Windows.Forms.CheckBox
@@ -1242,15 +1263,15 @@ If ($DisplayForm) {
     $DisableWU.AutoSize = $false
     $DisableWU.width = 400
     $DisableWU.height = 30
-    $DisableWU.location = New-Object System.Drawing.Point(48, 523)
+    $DisableWU.location = New-Object System.Drawing.Point(30, 420)
     $DisableWU.Font = 'Microsoft Sans Serif,14'
 
     $AppRemove = New-Object System.Windows.Forms.CheckBox
-    $AppRemove.text = "Remove inbox Windows 10 Apps (Adjust removeapps.xml)"
+    $AppRemove.text = "Remove inbox Windows 10 Apps"
     $AppRemove.AutoSize = $false
     $AppRemove.Width = 550
     $AppRemove.height = 30
-    $AppRemove.Location = New-Object System.Drawing.Point(48, 571)
+    $AppRemove.Location = New-Object System.Drawing.Point(30, 450)
     $AppRemove.Font = 'Microsoft Sans Serif,14'
     
     $RunCleanMgr = New-Object system.Windows.Forms.CheckBox
@@ -1258,7 +1279,7 @@ If ($DisplayForm) {
     $RunCleanMgr.AutoSize = $false
     $RunCleanMgr.width = 400
     $RunCleanMgr.height = 30
-    $RunCleanMgr.location = New-Object System.Drawing.Point(48, 609)
+    $RunCleanMgr.location = New-Object System.Drawing.Point(30, 480)
     $RunCleanMgr.Font = 'Microsoft Sans Serif,14'
 
     ForEach ($Item in $DropdownArraySyncMonths) {
@@ -1273,12 +1294,13 @@ If ($DisplayForm) {
         [void] $CalendarSyncMode.Items.Add($Item)
     }
 
-    $WVDGoldenImagePrep.controls.AddRange(@($Execute, $ScriptTitle, $CalendarSyncMode, $EmailCacheMonths, $CalSyncTime, $VHDPath, $TenantID, $InstallOffice365, $InstallFSLogix, $InstallOneDrive, $DisableWU, $InstallTeams, $InstallEdge, $AppRemove, $RunCleanMgr, $LabelVHDLocation, $LabelAADTenant, $labelEmailCache, $labelCalSyncType, $labelCalSyncTime))
+    $WVDGoldenImagePrep.controls.AddRange(@($Execute, $ScriptTitle, $CalendarSyncMode, $EmailCacheMonths, $CalSyncTime, $VHDPath, $TenantID, $MarketPlaceImage, $InstallOffice365, $InstallFSLogix, $InstallOneDrive, $DisableWU, $InstallTeams, $InstallEdge, $AppRemove, $RunCleanMgr, $LabelVHDLocation, $LabelAADTenant, $labelEmailCache, $labelCalSyncType, $labelCalSyncTime))
 
     [void]$WVDGoldenImagePrep.ShowDialog()
 }
 Else {
     Prepare-Image `
+        -MarketPlaceSource $MarketPlaceSource `
         -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
         -OneDriveInstall $OneDriveInstall -AADTenantID $AADTenantID `
         -FSLogixInstall $FSLogixInstall -FSLogixVHDPath $FSLogixVHDPath `
