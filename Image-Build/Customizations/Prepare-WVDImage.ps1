@@ -28,58 +28,58 @@ Param
     [switch]$DisplayForm,
 
     #install Office 365
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [bool]$Office365Install = $true,
 
     # Outlook Email Cached Sync Time, Microsoft Recommendation is 1 month.
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [ValidateSet("Not Configured", "3 days", "1 week", "2 weeks", "1 month", "3 months", "6 months", "12 months", "24 months", "36 months", "60 months", "All")]
     [string]$EmailCacheTime = "Not Configured",
 
     # Outlook Calendar Sync Mode, Microsoft Recommendation is Primary Calendar Only. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
-    [ValidateSet("Not Configured", "Inactive","Primary Calendar Only","All Calendar Folders")]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
+    [ValidateSet("Not Configured", "Inactive", "Primary Calendar Only", "All Calendar Folders")]
     [string]$CalendarSync = "Not Configured",
 
     # Outlook Calendar Sync Months, Microsoft Recommendation is 1 Month. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
-    [ValidateSet("Not Configured","1","3","6","12")]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
+    [ValidateSet("Not Configured", "1", "3", "6", "12")]
     [string]$CalendarSyncMonths = "Not Configured",
 
     # Install OneDrive per-machine
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [bool]$OneDriveInstall = $true,
 
     #Azure Active Directory TenantID
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [string]$AADTenantID,
 
     # Install FSLogix Agent
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [bool]$FSLogixInstall = $true,
 
     #UNC Paths to FSLogix Profile Disks. Enclose each value in double quotes seperated by a ',' (ex: "\\primary\fslogix","\\failover\fslogix")
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     $FSLogixVHDPath,
 
     #Install Microsoft Teams in the Per-Machine configuration. Update the $TeamsURL variable to point to the latest version as needed.
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [bool]$TeamsInstall = $true,
 
     #Install Microsoft Edge Chromium. Update $EdgeURL variable to point to latest version as needed.
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [bool]$EdgeInstall = $true,
 
     #Disable Windows Update
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [bool]$DisableUpdates,
 
     #Run Disk Cleanup at end. Will require a reboot before sysprep.
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [bool]$CleanupImage,
 
     #Remove Built-in Windows Apps
-    [Parameter(ParameterSetName = 'Automation', Mandatory=$false)]
+    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [bool]$RemoveApps = $true
 )
 
@@ -102,13 +102,12 @@ If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -
 [uri]$TeamsUrl = "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.12058/Teams_windows_x64.msi"
 [uri]$FSLogixUrl = "https://go.microsoft.com/fwlink/?linkid=2084562"
 [uri]$EdgeUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/10c99438-300d-44e2-b9d3-789023d3dc51/MicrosoftEdgeEnterpriseX64.msi"
-[uri]$EdgeTemplatesUrl ="http://dl.delivery.mp.microsoft.com/filestreamingservice/files/35489c34-cd12-4773-a512-d03351cb8a42/MicrosoftEdgePolicyTemplates.zip"
+[uri]$EdgeTemplatesUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/35489c34-cd12-4773-a512-d03351cb8a42/MicrosoftEdgePolicyTemplates.zip"
 
 #endregion
 
 #region functions
-Function Write-Log
-{
+Function Write-Log {
     <#
         .SYNOPSIS
 	        Write messages to a log file in CMTrace.exe compatible format or Legacy text file format.
@@ -147,281 +146,267 @@ Function Write-Log
 	        Write-Log -Message "Script is running on Windows 8" -Source 'Test-ValidOS' -LogType 'Legacy'
         .NOTES
     #>
-	[CmdletBinding()]
-	Param (
-		[Parameter(Mandatory=$true,Position=0,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true)]
-		[AllowEmptyCollection()]
-		[string[]]$Message,
-		[Parameter(Mandatory=$false,Position=1)]
-		[ValidateRange(1,3)]
-		[int16]$Severity = 1,
-		[Parameter(Mandatory=$false,Position=2)]
-		[ValidateNotNull()]
-		[string]$Source = '',
-		[Parameter(Mandatory=$false,Position=3)]
-		[ValidateSet('CMTrace','Legacy')]
-		[string]$LogType = "CMTrace",
-		[Parameter(Mandatory=$false,Position=4)]
-		[ValidateNotNullorEmpty()]
-		[string]$LogFileDirectory = $Script:LogDir,
-		[Parameter(Mandatory=$false,Position=5)]
-		[ValidateNotNullorEmpty()]
-		[string]$LogFileName = $Script:LogName,
-		[Parameter(Mandatory=$false,Position=6)]
-		[ValidateNotNullorEmpty()]
-		[decimal]$MaxLogFileSizeMB = 100,
-		[Parameter(Mandatory=$false,Position=7)]
-		[ValidateNotNullorEmpty()]
-		[boolean]$WriteHost = $true,
-		[Parameter(Mandatory=$false,Position=8)]
-		[ValidateNotNullorEmpty()]
-		[boolean]$ContinueOnError = $true,
-		[Parameter(Mandatory=$false,Position=9)]
-		[switch]$PassThru = $false
-	)
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
+        [AllowEmptyCollection()]
+        [string[]]$Message,
+        [Parameter(Mandatory = $false, Position = 1)]
+        [ValidateRange(1, 3)]
+        [int16]$Severity = 1,
+        [Parameter(Mandatory = $false, Position = 2)]
+        [ValidateNotNull()]
+        [string]$Source = '',
+        [Parameter(Mandatory = $false, Position = 3)]
+        [ValidateSet('CMTrace', 'Legacy')]
+        [string]$LogType = "CMTrace",
+        [Parameter(Mandatory = $false, Position = 4)]
+        [ValidateNotNullorEmpty()]
+        [string]$LogFileDirectory = $Script:LogDir,
+        [Parameter(Mandatory = $false, Position = 5)]
+        [ValidateNotNullorEmpty()]
+        [string]$LogFileName = $Script:LogName,
+        [Parameter(Mandatory = $false, Position = 6)]
+        [ValidateNotNullorEmpty()]
+        [decimal]$MaxLogFileSizeMB = 100,
+        [Parameter(Mandatory = $false, Position = 7)]
+        [ValidateNotNullorEmpty()]
+        [boolean]$WriteHost = $true,
+        [Parameter(Mandatory = $false, Position = 8)]
+        [ValidateNotNullorEmpty()]
+        [boolean]$ContinueOnError = $true,
+        [Parameter(Mandatory = $false, Position = 9)]
+        [switch]$PassThru = $false
+    )
 	
-	Begin {
-		## Get the name of this function
-		[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
+    Begin {
+        ## Get the name of this function
+        [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 		
-		## Logging Variables
-		#  Log file date/time
-		[string]$LogTime = (Get-Date -Format 'HH:mm:ss.fff').ToString()
-		[string]$LogDate = (Get-Date -Format 'MM-dd-yyyy').ToString()
-		If (-not (Test-Path -LiteralPath 'variable:LogTimeZoneBias')) { [int32]$script:LogTimeZoneBias = [timezone]::CurrentTimeZone.GetUtcOffset([datetime]::Now).TotalMinutes }
-		[string]$LogTimePlusBias = $LogTime + $script:LogTimeZoneBias
-		#  Initialize variables
-		[boolean]$ExitLoggingFunction = $false
-		#  Check if the script section is defined
-		[boolean]$Script:SectionDefined = [boolean](-not [string]::IsNullOrEmpty($Script:Section))
-		#  Get the file name of the source script
-		Try {
-			If ($script:MyInvocation.Value.ScriptName) {
-				[string]$ScriptSource = Split-Path -Path $script:MyInvocation.Value.ScriptName -Leaf -ErrorAction 'Stop'
-			}
-			Else {
-				[string]$ScriptSource = Split-Path -Path $script:MyInvocation.MyCommand.Definition -Leaf -ErrorAction 'Stop'
-			}
-		}
-		Catch {
-			$ScriptSource = ''
-		}
+        ## Logging Variables
+        #  Log file date/time
+        [string]$LogTime = (Get-Date -Format 'HH:mm:ss.fff').ToString()
+        [string]$LogDate = (Get-Date -Format 'MM-dd-yyyy').ToString()
+        If (-not (Test-Path -LiteralPath 'variable:LogTimeZoneBias')) { [int32]$script:LogTimeZoneBias = [timezone]::CurrentTimeZone.GetUtcOffset([datetime]::Now).TotalMinutes }
+        [string]$LogTimePlusBias = $LogTime + $script:LogTimeZoneBias
+        #  Initialize variables
+        [boolean]$ExitLoggingFunction = $false
+        #  Check if the script section is defined
+        [boolean]$Script:SectionDefined = [boolean](-not [string]::IsNullOrEmpty($Script:Section))
+        #  Get the file name of the source script
+        Try {
+            If ($script:MyInvocation.Value.ScriptName) {
+                [string]$ScriptSource = Split-Path -Path $script:MyInvocation.Value.ScriptName -Leaf -ErrorAction 'Stop'
+            }
+            Else {
+                [string]$ScriptSource = Split-Path -Path $script:MyInvocation.MyCommand.Definition -Leaf -ErrorAction 'Stop'
+            }
+        }
+        Catch {
+            $ScriptSource = ''
+        }
 		
-		## Create script block for generating CMTrace.exe compatible log entry
-		[scriptblock]$CMTraceLogString = {
-			Param (
-				[string]$lMessage,
-				[string]$lSource,
-				[int16]$lSeverity
-			)
-			"<![LOG[$lMessage]LOG]!>" + "<time=`"$LogTimePlusBias`" " + "date=`"$LogDate`" " + "component=`"$lSource`" " + "context=`"$([Security.Principal.WindowsIdentity]::GetCurrent().Name)`" " + "type=`"$lSeverity`" " + "thread=`"$PID`" " + "file=`"$ScriptSource`">"
-		}
+        ## Create script block for generating CMTrace.exe compatible log entry
+        [scriptblock]$CMTraceLogString = {
+            Param (
+                [string]$lMessage,
+                [string]$lSource,
+                [int16]$lSeverity
+            )
+            "<![LOG[$lMessage]LOG]!>" + "<time=`"$LogTimePlusBias`" " + "date=`"$LogDate`" " + "component=`"$lSource`" " + "context=`"$([Security.Principal.WindowsIdentity]::GetCurrent().Name)`" " + "type=`"$lSeverity`" " + "thread=`"$PID`" " + "file=`"$ScriptSource`">"
+        }
 		
-		## Create script block for writing log entry to the console
-		[scriptblock]$WriteLogLineToHost = {
-			Param (
-				[string]$lTextLogLine,
-				[int16]$lSeverity
-			)
-			If ($WriteHost) {
-				#  Only output using color options if running in a host which supports colors.
-				If ($Host.UI.RawUI.ForegroundColor) {
-					Switch ($lSeverity) {
-						3 { Write-Host -Object $lTextLogLine -ForegroundColor 'Red' -BackgroundColor 'Black' }
-						2 { Write-Host -Object $lTextLogLine -ForegroundColor 'Yellow' -BackgroundColor 'Black' }
-						1 { Write-Host -Object $lTextLogLine }
-					}
-				}
-				#  If executing "powershell.exe -File <filename>.ps1 > log.txt", then all the Write-Host calls are converted to Write-Output calls so that they are included in the text log.
-				Else {
-					Write-Output -InputObject $lTextLogLine
-				}
-			}
-		}
+        ## Create script block for writing log entry to the console
+        [scriptblock]$WriteLogLineToHost = {
+            Param (
+                [string]$lTextLogLine,
+                [int16]$lSeverity
+            )
+            If ($WriteHost) {
+                #  Only output using color options if running in a host which supports colors.
+                If ($Host.UI.RawUI.ForegroundColor) {
+                    Switch ($lSeverity) {
+                        3 { Write-Host -Object $lTextLogLine -ForegroundColor 'Red' -BackgroundColor 'Black' }
+                        2 { Write-Host -Object $lTextLogLine -ForegroundColor 'Yellow' -BackgroundColor 'Black' }
+                        1 { Write-Host -Object $lTextLogLine }
+                    }
+                }
+                #  If executing "powershell.exe -File <filename>.ps1 > log.txt", then all the Write-Host calls are converted to Write-Output calls so that they are included in the text log.
+                Else {
+                    Write-Output -InputObject $lTextLogLine
+                }
+            }
+        }
 		
-		## Create the directory where the log file will be saved
-		If (-not (Test-Path -LiteralPath $LogFileDirectory -PathType 'Container')) {
-			Try {
-				$null = New-Item -Path $LogFileDirectory -Type 'Directory' -Force -ErrorAction 'Stop'
-			}
-			Catch {
-				[boolean]$ExitLoggingFunction = $true
-				#  If error creating directory, write message to console
-				If (-not $ContinueOnError) {
-					Write-Host -Object "[$LogDate $LogTime] [${CmdletName}] $Script:Section :: Failed to create the log directory [$LogFileDirectory]. `n$(Resolve-Error)" -ForegroundColor 'Red'
-				}
-				Return
-			}
-		}
+        ## Create the directory where the log file will be saved
+        If (-not (Test-Path -LiteralPath $LogFileDirectory -PathType 'Container')) {
+            Try {
+                $null = New-Item -Path $LogFileDirectory -Type 'Directory' -Force -ErrorAction 'Stop'
+            }
+            Catch {
+                [boolean]$ExitLoggingFunction = $true
+                #  If error creating directory, write message to console
+                If (-not $ContinueOnError) {
+                    Write-Host -Object "[$LogDate $LogTime] [${CmdletName}] $Script:Section :: Failed to create the log directory [$LogFileDirectory]. `n$(Resolve-Error)" -ForegroundColor 'Red'
+                }
+                Return
+            }
+        }
 		
-		## Assemble the fully qualified path to the log file
-		[string]$LogFilePath = Join-Path -Path $LogFileDirectory -ChildPath $LogFileName
-	}
-	Process {
-		## Exit function if logging is disabled
+        ## Assemble the fully qualified path to the log file
+        [string]$LogFilePath = Join-Path -Path $LogFileDirectory -ChildPath $LogFileName
+    }
+    Process {
+        ## Exit function if logging is disabled
 		
-		ForEach ($Msg in $Message) {
-			## If the message is not $null or empty, create the log entry for the different logging methods
-			[string]$CMTraceMsg = ''
-			[string]$ConsoleLogLine = ''
-			[string]$LegacyTextLogLine = ''
-			If ($Msg) {
-				#  Create the CMTrace log message
-				If ($Script:SectionDefined) { [string]$CMTraceMsg = "[$Script:Section] :: $Msg" }
+        ForEach ($Msg in $Message) {
+            ## If the message is not $null or empty, create the log entry for the different logging methods
+            [string]$CMTraceMsg = ''
+            [string]$ConsoleLogLine = ''
+            [string]$LegacyTextLogLine = ''
+            If ($Msg) {
+                #  Create the CMTrace log message
+                If ($Script:SectionDefined) { [string]$CMTraceMsg = "[$Script:Section] :: $Msg" }
 				
-				#  Create a Console and Legacy "text" log entry
-				[string]$LegacyMsg = "[$LogDate $LogTime]"
-				If ($Script:SectionDefined) { [string]$LegacyMsg += " [$Script:Section]" }
-				If ($Source) {
-					[string]$ConsoleLogLine = "$LegacyMsg [$Source] :: $Msg"
-					Switch ($Severity) {
-						3 { [string]$LegacyTextLogLine = "$LegacyMsg [$Source] [Error] :: $Msg" }
-						2 { [string]$LegacyTextLogLine = "$LegacyMsg [$Source] [Warning] :: $Msg" }
-						1 { [string]$LegacyTextLogLine = "$LegacyMsg [$Source] [Info] :: $Msg" }
-					}
-				}
-				Else {
-					[string]$ConsoleLogLine = "$LegacyMsg :: $Msg"
-					Switch ($Severity) {
-						3 { [string]$LegacyTextLogLine = "$LegacyMsg [Error] :: $Msg" }
-						2 { [string]$LegacyTextLogLine = "$LegacyMsg [Warning] :: $Msg" }
-						1 { [string]$LegacyTextLogLine = "$LegacyMsg [Info] :: $Msg" }
-					}
-				}
-			}
+                #  Create a Console and Legacy "text" log entry
+                [string]$LegacyMsg = "[$LogDate $LogTime]"
+                If ($Script:SectionDefined) { [string]$LegacyMsg += " [$Script:Section]" }
+                If ($Source) {
+                    [string]$ConsoleLogLine = "$LegacyMsg [$Source] :: $Msg"
+                    Switch ($Severity) {
+                        3 { [string]$LegacyTextLogLine = "$LegacyMsg [$Source] [Error] :: $Msg" }
+                        2 { [string]$LegacyTextLogLine = "$LegacyMsg [$Source] [Warning] :: $Msg" }
+                        1 { [string]$LegacyTextLogLine = "$LegacyMsg [$Source] [Info] :: $Msg" }
+                    }
+                }
+                Else {
+                    [string]$ConsoleLogLine = "$LegacyMsg :: $Msg"
+                    Switch ($Severity) {
+                        3 { [string]$LegacyTextLogLine = "$LegacyMsg [Error] :: $Msg" }
+                        2 { [string]$LegacyTextLogLine = "$LegacyMsg [Warning] :: $Msg" }
+                        1 { [string]$LegacyTextLogLine = "$LegacyMsg [Info] :: $Msg" }
+                    }
+                }
+            }
 			
-			## Execute script block to create the CMTrace.exe compatible log entry
-			[string]$CMTraceLogLine = & $CMTraceLogString -lMessage $CMTraceMsg -lSource $Source -lSeverity $Severity
+            ## Execute script block to create the CMTrace.exe compatible log entry
+            [string]$CMTraceLogLine = & $CMTraceLogString -lMessage $CMTraceMsg -lSource $Source -lSeverity $Severity
 			
-			## Choose which log type to write to file
-			If ($LogType -ieq 'CMTrace') {
-				[string]$LogLine = $CMTraceLogLine
-			}
-			Else {
-				[string]$LogLine = $LegacyTextLogLine
-			}
+            ## Choose which log type to write to file
+            If ($LogType -ieq 'CMTrace') {
+                [string]$LogLine = $CMTraceLogLine
+            }
+            Else {
+                [string]$LogLine = $LegacyTextLogLine
+            }
 			
-            Try
-            {
-				$LogLine | Out-File -FilePath $LogFilePath -Append -NoClobber -Force -Encoding 'UTF8' -ErrorAction 'Stop'
-			}
-            Catch
-            {
-				If (-not $ContinueOnError) {
-					Write-Host -Object "[$LogDate $LogTime] [$Script:Section] [${CmdletName}] :: Failed to write message [$Msg] to the log file [$LogFilePath]. `n$(Resolve-Error)" -ForegroundColor 'Red'
-				}
-			}
+            Try {
+                $LogLine | Out-File -FilePath $LogFilePath -Append -NoClobber -Force -Encoding 'UTF8' -ErrorAction 'Stop'
+            }
+            Catch {
+                If (-not $ContinueOnError) {
+                    Write-Host -Object "[$LogDate $LogTime] [$Script:Section] [${CmdletName}] :: Failed to write message [$Msg] to the log file [$LogFilePath]. `n$(Resolve-Error)" -ForegroundColor 'Red'
+                }
+            }
 						
-			## Execute script block to write the log entry to the console if $WriteHost is $true
-			& $WriteLogLineToHost -lTextLogLine $ConsoleLogLine -lSeverity $Severity
-		}
-	}
-	End {
-		## Archive log file if size is greater than $MaxLogFileSizeMB and $MaxLogFileSizeMB > 0
-		Try {
-			If ((-not $ExitLoggingFunction) -and (-not $DisableLogging)) {
-				[IO.FileInfo]$LogFile = Get-ChildItem -LiteralPath $LogFilePath -ErrorAction 'Stop'
-				[decimal]$LogFileSizeMB = $LogFile.Length/1MB
-				If (($LogFileSizeMB -gt $MaxLogFileSizeMB) -and ($MaxLogFileSizeMB -gt 0)) {
-					## Change the file extension to "lo_"
-					[string]$ArchivedOutLogFile = [IO.Path]::ChangeExtension($LogFilePath, 'lo_')
-					[hashtable]$ArchiveLogParams = @{ ScriptSection = $Script:Section; Source = ${CmdletName}; Severity = 2; LogFileDirectory = $LogFileDirectory; LogFileName = $LogFileName; LogType = $LogType; MaxLogFileSizeMB = 0; WriteHost = $WriteHost; ContinueOnError = $ContinueOnError; PassThru = $false }
+            ## Execute script block to write the log entry to the console if $WriteHost is $true
+            & $WriteLogLineToHost -lTextLogLine $ConsoleLogLine -lSeverity $Severity
+        }
+    }
+    End {
+        ## Archive log file if size is greater than $MaxLogFileSizeMB and $MaxLogFileSizeMB > 0
+        Try {
+            If ((-not $ExitLoggingFunction) -and (-not $DisableLogging)) {
+                [IO.FileInfo]$LogFile = Get-ChildItem -LiteralPath $LogFilePath -ErrorAction 'Stop'
+                [decimal]$LogFileSizeMB = $LogFile.Length / 1MB
+                If (($LogFileSizeMB -gt $MaxLogFileSizeMB) -and ($MaxLogFileSizeMB -gt 0)) {
+                    ## Change the file extension to "lo_"
+                    [string]$ArchivedOutLogFile = [IO.Path]::ChangeExtension($LogFilePath, 'lo_')
+                    [hashtable]$ArchiveLogParams = @{ ScriptSection = $Script:Section; Source = ${CmdletName}; Severity = 2; LogFileDirectory = $LogFileDirectory; LogFileName = $LogFileName; LogType = $LogType; MaxLogFileSizeMB = 0; WriteHost = $WriteHost; ContinueOnError = $ContinueOnError; PassThru = $false }
 					
-					## Log message about archiving the log file
-					$ArchiveLogMessage = "Maximum log file size [$MaxLogFileSizeMB MB] reached. Rename log file to [$ArchivedOutLogFile]."
-					Write-Log -Message $ArchiveLogMessage @ArchiveLogParams
+                    ## Log message about archiving the log file
+                    $ArchiveLogMessage = "Maximum log file size [$MaxLogFileSizeMB MB] reached. Rename log file to [$ArchivedOutLogFile]."
+                    Write-Log -Message $ArchiveLogMessage @ArchiveLogParams
 					
-					## Archive existing log file from <filename>.log to <filename>.lo_. Overwrites any existing <filename>.lo_ file. This is the same method SCCM uses for log files.
-					Move-Item -LiteralPath $LogFilePath -Destination $ArchivedOutLogFile -Force -ErrorAction 'Stop'
+                    ## Archive existing log file from <filename>.log to <filename>.lo_. Overwrites any existing <filename>.lo_ file. This is the same method SCCM uses for log files.
+                    Move-Item -LiteralPath $LogFilePath -Destination $ArchivedOutLogFile -Force -ErrorAction 'Stop'
 					
-					## Start new log file and Log message about archiving the old log file
-					$NewLogMessage = "Previous log file was renamed to [$ArchivedOutLogFile] because maximum log file size of [$MaxLogFileSizeMB MB] was reached."
-					Write-Log -Message $NewLogMessage @ArchiveLogParams
-				}
-			}
-		}
-		Catch {
-			## If renaming of file fails, script will continue writing to log file even if size goes over the max file size
-		}
-		Finally {
-			If ($PassThru) { Write-Output -InputObject $Message }
-		}
-	}
+                    ## Start new log file and Log message about archiving the old log file
+                    $NewLogMessage = "Previous log file was renamed to [$ArchivedOutLogFile] because maximum log file size of [$MaxLogFileSizeMB MB] was reached."
+                    Write-Log -Message $NewLogMessage @ArchiveLogParams
+                }
+            }
+        }
+        Catch {
+            ## If renaming of file fails, script will continue writing to log file even if size goes over the max file size
+        }
+        Finally {
+            If ($PassThru) { Write-Output -InputObject $Message }
+        }
+    }
 }
 
-Function Set-RegistryValue
-{
-	[CmdletBinding()]
-	Param (
-		[Parameter(Mandatory=$true)]
-		[ValidateNotNullorEmpty()]
-		[string]$Key,
-		[Parameter(Mandatory=$true)]
-		[ValidateNotNullOrEmpty()]
-		[string]$Name,
-		[Parameter(Mandatory=$true)]
-		$Value,
-		[Parameter(Mandatory=$true)]
-		[ValidateSet('Binary','DWord','ExpandString','MultiString','None','QWord','String','Unknown')]
-		[Microsoft.Win32.RegistryValueKind]$Type = 'String'
-	)
+Function Set-RegistryValue {
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullorEmpty()]
+        [string]$Key,
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Name,
+        [Parameter(Mandatory = $true)]
+        $Value,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('Binary', 'DWord', 'ExpandString', 'MultiString', 'None', 'QWord', 'String', 'Unknown')]
+        [Microsoft.Win32.RegistryValueKind]$Type = 'String'
+    )
 
-	[string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
+    [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 
-    If (-not (Get-ItemProperty -LiteralPath $key -Name $Name -ErrorAction 'SilentlyContinue'))
-    {
-        If (-not (Test-Path -LiteralPath $key -ErrorAction 'Stop'))
-        {
-		    Try
-            {
-				Write-Log -Message "Create registry key [$key]." -Source ${CmdletName}
-				# No forward slash found in Key. Use New-Item cmdlet to create registry key
-				If ((($Key -split '/').Count - 1) -eq 0)
-				{
-					$null = New-Item -Path $key -ItemType 'Registry' -Force -ErrorAction 'Stop'
-				}
-				# Forward slash was found in Key. Use REG.exe ADD to create registry key
-				Else
-				{
-					[string]$CreateRegkeyResult = & reg.exe Add "$($Key.Substring($Key.IndexOf('::') + 2))"
-					If ($global:LastExitCode -ne 0)
-					{
-						Throw "Failed to create registry key [$Key]"
-					}
-				}
-			}
-			Catch
-            {
-				Throw
-			}
-		}
+    If (-not (Get-ItemProperty -LiteralPath $key -Name $Name -ErrorAction 'SilentlyContinue')) {
+        If (-not (Test-Path -LiteralPath $key -ErrorAction 'Stop')) {
+            Try {
+                Write-Log -Message "Create registry key [$key]." -Source ${CmdletName}
+                # No forward slash found in Key. Use New-Item cmdlet to create registry key
+                If ((($Key -split '/').Count - 1) -eq 0) {
+                    $null = New-Item -Path $key -ItemType 'Registry' -Force -ErrorAction 'Stop'
+                }
+                # Forward slash was found in Key. Use REG.exe ADD to create registry key
+                Else {
+                    [string]$CreateRegkeyResult = & reg.exe Add "$($Key.Substring($Key.IndexOf('::') + 2))"
+                    If ($global:LastExitCode -ne 0) {
+                        Throw "Failed to create registry key [$Key]"
+                    }
+                }
+            }
+            Catch {
+                Throw
+            }
+        }
         Write-Log -Message "Set registry key value: [$key] [$name = $value]." -Source ${CmdletName}
-	    $null = New-ItemProperty -LiteralPath $key -Name $name -Value $value -PropertyType $Type -ErrorAction 'Stop'
+        $null = New-ItemProperty -LiteralPath $key -Name $name -Value $value -PropertyType $Type -ErrorAction 'Stop'
     }
     ## Update registry value if it does exist
-    Else
-    {
+    Else {
         [string]$RegistryValueWriteAction = 'update'
-	    If ($Name -eq '(Default)')
-        {
-	        ## Set Default registry key value with the following workaround, because Set-ItemProperty contains a bug and cannot set Default registry key value
-		    $null = $(Get-Item -LiteralPath $key -ErrorAction 'Stop').OpenSubKey('','ReadWriteSubTree').SetValue($null,$value)
-	    }
-	    Else
-        {
-		    Write-Log -Message "Update registry key value: [$key] [$name = $value]." -Source ${CmdletName}
-		    $null = Set-ItemProperty -LiteralPath $key -Name $name -Value $value -ErrorAction 'Stop'
-	    }
+        If ($Name -eq '(Default)') {
+            ## Set Default registry key value with the following workaround, because Set-ItemProperty contains a bug and cannot set Default registry key value
+            $null = $(Get-Item -LiteralPath $key -ErrorAction 'Stop').OpenSubKey('', 'ReadWriteSubTree').SetValue($null, $value)
+        }
+        Else {
+            Write-Log -Message "Update registry key value: [$key] [$name = $value]." -Source ${CmdletName}
+            $null = Set-ItemProperty -LiteralPath $key -Name $name -Value $value -ErrorAction 'Stop'
+        }
     }
 }
 
-Function Download-File
-{
+Function Download-File {
     [CmdletBinding()]
-	Param (
-		[Parameter(Mandatory=$true,Position=0)]
-		[uri]$url,
-		[Parameter(Mandatory=$false,Position=1)]
+    Param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [uri]$url,
+        [Parameter(Mandatory = $false, Position = 1)]
         [string]$outputfile
 
     )
@@ -434,63 +419,56 @@ Function Download-File
     Write-Log -Message "Now Downloading file from `"$url`" to `"$outputfile`"." -Source ${CmdletName}
     $wc.DownloadFile($url, $outputfile)
     
-    $time=(Get-Date).Subtract($start_time).Seconds
+    $time = (Get-Date).Subtract($start_time).Seconds
     
     Write-Log -Message "Time taken: `"$time`" seconds." -Source ${CmdletName}
-    if(Test-Path -Path $outputfile)
-    {
+    if (Test-Path -Path $outputfile) {
         $totalSize = (Get-Item $outputfile).Length / 1MB
         Write-Log -message "Download was successful. Final file size: `"$totalsize`" mb" -Source ${CmdletName}
     }
 }
 
-Function Update-LGPORegistryTxt
-{
-	Param (
-		[Parameter(Mandatory=$true,Position=0)]
-		[ValidateSet('Computer','User')]
-		[string]$scope,
-		[Parameter(Mandatory=$true,Position=1)]
+Function Update-LGPORegistryTxt {
+    Param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [ValidateSet('Computer', 'User')]
+        [string]$scope,
+        [Parameter(Mandatory = $true, Position = 1)]
         [string]$RegistryKeyPath,
-        [Parameter(Mandatory=$true,Position=2)]
+        [Parameter(Mandatory = $true, Position = 2)]
         [string]$RegistryValue,
-        [Parameter(Mandatory=$true,Position=3)]
+        [Parameter(Mandatory = $true, Position = 3)]
         [string]$RegistryData,
-        [Parameter(Mandatory=$true,Position=4)]
-        [ValidateSet('DWORD','String')]
+        [Parameter(Mandatory = $true, Position = 4)]
+        [ValidateSet('DWORD', 'String')]
         [string]$RegistryType,
-        [string]$outputDir="$Script:LogDir\LGPO",
-        [string]$outfileprefix=$Script:Section
+        [string]$outputDir = "$Script:LogDir\LGPO",
+        [string]$outfileprefix = $Script:Section
     )
 
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     # Convert $RegistryType to UpperCase to prevent LGPO errors.
     $ValueType = $RegistryType.ToUpper()
     # Change String type to SZ for text file
-    If ($ValueType -eq 'STRING') {$ValueType='SZ'}
+    If ($ValueType -eq 'STRING') { $ValueType = 'SZ' }
     # Replace any incorrect registry entries for the format needed by text file.
-    $modified=$false
-    $SearchStrings = 'HKLM:\','HKCU:\','HKEY_CURRENT_USER:\','HKEY_LOCAL_MACHINE:\'
-    ForEach ($String in $SearchStrings)
-    {
-        If ($RegistryKeyPath.StartsWith("$String") -and $modified -ne $true)
-        {
-            $index=$String.Length
-            $RegistryKeyPath = $RegistryKeyPath.Substring($index,$RegistryKeyPath.Length-$index)
-            $modified=$true
+    $modified = $false
+    $SearchStrings = 'HKLM:\', 'HKCU:\', 'HKEY_CURRENT_USER:\', 'HKEY_LOCAL_MACHINE:\'
+    ForEach ($String in $SearchStrings) {
+        If ($RegistryKeyPath.StartsWith("$String") -and $modified -ne $true) {
+            $index = $String.Length
+            $RegistryKeyPath = $RegistryKeyPath.Substring($index, $RegistryKeyPath.Length - $index)
+            $modified = $true
         }
     }
     
     #Create the output file if needed.
     $Outfile = "$OutputDir\$Outfileprefix-$Scope.txt"
-    If (-not (Test-Path -LiteralPath $Outfile))
-    {
-        If (-not (Test-Path -LiteralPath $OutputDir -PathType 'Container'))
-        {
-	        Try
-            {
-		        $null = New-Item -Path $OutputDir -Type 'Directory' -Force -ErrorAction 'Stop'
-		    }
+    If (-not (Test-Path -LiteralPath $Outfile)) {
+        If (-not (Test-Path -LiteralPath $OutputDir -PathType 'Container')) {
+            Try {
+                $null = New-Item -Path $OutputDir -Type 'Directory' -Force -ErrorAction 'Stop'
+            }
             Catch {}
         }
         $null = New-Item -Path $outputdir -Name "$OutFilePrefix-$Scope.txt" -ItemType File -ErrorAction Stop
@@ -505,106 +483,101 @@ Function Update-LGPORegistryTxt
     Add-Content -Path $Outfile -Value ""
 }
 
-Function Execute-LGPO
-{
+Function Execute-LGPO {
     Param (
-        [string]$InputDir="$Script:LogDir\LGPO",
-        [string]$SearchTerm="$Script:Section"
+        [string]$InputDir = "$Script:LogDir\LGPO",
+        [string]$SearchTerm = "$Script:Section"
     )
 
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     Write-Output "Gathering Registry text files for LGPO from $InputDir"
     $InputFiles = Get-ChildItem -Path $InputDir -Filter "$SearchTerm*.txt"
     Write-Output $InputFiles
-    ForEach ($RegistryFile in $inputFiles)
-    {
+    ForEach ($RegistryFile in $inputFiles) {
         $TxtFilePath = $RegistryFile.FullName
         Write-Log -Message "Now applying settings from `"$txtFilePath`" to Local Group Policy via LGPO.exe." -Source ${CmdletName}
         Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -PassThru -Wait -NoNewWindow
     }
 }
 
-Function Clean-Image
-{
+Function Clean-Image {
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     Write-Log -Message "Now Cleaning image using Disk Cleanup wizard." -Source ${CmdletName}
     $RegKeyParent = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\"
     # Set up array of registry keys
-    $RegKeySuffixes = "Active Setup Temp Folders","BranchCache","Downloaded Program Files","GameNewsFiles","GameStatisticsFiles","GameUpdateFiles",`
-    "Internet Cache Files","Memory Dump Files","Offline Pages Files","Old ChkDsk Files","Previous Installations","Recycle Bin","Service Pack Cleanup",`
-    "Setup Log Files","System error memory dump files","System error minidump files","Temporary Files","Temporary Setup Files","Temporary Sync Files",`
-    "Thumbnail Cache","Update Cleanup","Upgrade Discarded Files","User file versions","Windows Defender","Windows Error Reporting Archive Files",`
-    "Windows Error Reporting Queue Files","Windows Error Reporting System Archive Files","Windows Error Reporting System Queue Files",`
-    "Windows ESD installation files","Windows Upgrade Log Files"
+    $RegKeySuffixes = "Active Setup Temp Folders", "BranchCache", "Downloaded Program Files", "GameNewsFiles", "GameStatisticsFiles", "GameUpdateFiles", `
+        "Internet Cache Files", "Memory Dump Files", "Offline Pages Files", "Old ChkDsk Files", "Previous Installations", "Recycle Bin", "Service Pack Cleanup", `
+        "Setup Log Files", "System error memory dump files", "System error minidump files", "Temporary Files", "Temporary Setup Files", "Temporary Sync Files", `
+        "Thumbnail Cache", "Update Cleanup", "Upgrade Discarded Files", "User file versions", "Windows Defender", "Windows Error Reporting Archive Files", `
+        "Windows Error Reporting Queue Files", "Windows Error Reporting System Archive Files", "Windows Error Reporting System Queue Files", `
+        "Windows ESD installation files", "Windows Upgrade Log Files"
     
     ForEach ($Suffix in $RegKeySuffixes) { Set-RegistryValue -Key "$RegKeyParent$Suffix" -Name StateFlags0100 -Type DWord -Value 2 }
     Start-Process -FilePath cleanmgr.exe -ArgumentList "/sagerun:100" -Wait -PassThru
     
 }
 
-Function Prepare-Image
-{
+Function Prepare-Image {
     Param
     (
         #install Office 365
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [bool]$Office365Install,
 
         # Outlook Email Cached Sync Time
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet("Not Configured", "3 days", "1 week", "2 weeks", "1 month", "3 months", "6 months", "12 months", "24 months", "36 months", "60 months", "All")]
         [string]$EmailCacheTime = "Not Configured",
 
         # Outlook Calendar Sync Mode. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
-        [Parameter(Mandatory=$false)]
-        [ValidateSet("Not Configured", "Inactive","Primary Calendar Only","All Calendar Folders")]
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("Not Configured", "Inactive", "Primary Calendar Only", "All Calendar Folders")]
         [string]$CalendarSync = "Not Configured",
 
         # Outlook Calendar Sync Months. See https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
-        [Parameter(Mandatory=$false)]
-        [ValidateSet("Not Configured","1","3","6","12")]
-        [string]$CalendarSyncMonths="Not Configured",
+        [Parameter(Mandatory = $false)]
+        [ValidateSet("Not Configured", "1", "3", "6", "12")]
+        [string]$CalendarSyncMonths = "Not Configured",
 
         # Install OneDrive per-machine
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [bool]$OneDriveInstall,
 
         #Azure Active Directory TenantID
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$AADTenantID,
 
         # Install FSLogix Agent
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [bool]$FSLogixInstall,
 
         #UNC Paths to FSLogix Profile Disks. Enclose each value in double quotes seperated by a ',' (ex: "\\primary\fslogix","\\failover\fslogix")
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         $FSLogixVHDPath,
 
         #Install Microsoft Teams in the Per-Machine configuration. Update the $TeamsURL variable to point to the latest version as needed.
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [bool]$TeamsInstall,
 
         #Install Microsoft Edge Chromium. Update $EdgeURL variable to point to latest version as needed.
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [bool]$EdgeInstall,
 
         #Disable Windows Update
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [bool]$DisableUpdates,
 
         #Run Disk Cleanup at end. Will require a reboot before sysprep.
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [bool]$CleanupImage,
 
         #Remove Apps
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [bool]$RemoveApps
     )
     #region Office365
 
-    If( $Office365Install )
-    {
+    If ( $Office365Install ) {
         $Ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/install-office-on-wvd-master-image"
         $Script:Section = 'Office 365'
         $dirOffice = "$PSScriptRoot\Office365"
@@ -621,8 +594,7 @@ Function Prepare-Image
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
 
         [string]$dirTemplates = Join-Path -Path $dirOffice -ChildPath 'Templates'
-        if (Test-Path $dirTemplates)
-        {
+        if (Test-Path $dirTemplates) {
             Write-Log -message "Copying Group Policy ADMX/L files to PolicyDefinitions Folders."
             Copy-Item -Path "$DirTemplates\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\"
             Copy-Item -Path "$DirTemplates\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us"
@@ -632,8 +604,7 @@ Function Prepare-Image
         # Turn off insider notifications
         Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\policies\microsoft\office\16.0\common' -RegistryValue InsiderSlabBehavior -RegistryType DWord -RegistryData 2
 
-        If (($EmailCacheTime -ne 'Not Configured') -or ($CalendarSync -ne 'Not Configured') -or ($CalendarSyncMonths -ne 'Not Configured'))
-        {
+        If (($EmailCacheTime -ne 'Not Configured') -or ($CalendarSync -ne 'Not Configured') -or ($CalendarSyncMonths -ne 'Not Configured')) {
             # Enable Outlook Cached Mode
             Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'Enable' -RegistryType DWord -RegistryData 1
         }
@@ -655,16 +626,14 @@ Function Prepare-Image
         If ($SyncWindowSettingDays) { Update-LGPORegistryTxt -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSettingDays' -RegistryType DWORD -RegistryData $SyncWindowSettingDays }
 
         # Calendar Sync Settings: https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
-        If ($CalendarSync -eq 'Inactive') { $CalendarSyncWindowSetting=0; }
+        If ($CalendarSync -eq 'Inactive') { $CalendarSyncWindowSetting = 0; }
         If ($CalendarSync -eq 'Primary Calendar Only') { $CalendarSyncWindowSetting = 1 }
         If ($CalendarSync -eq 'All Calendar Folders') { $CalendarSyncWindowSetting = 2 }
 
-        If ($CaldendarSyncWindowSetting)
-        {
+        If ($CaldendarSyncWindowSetting) {
             Reg LOAD HKLM\DefaultUser "$env:SystemDrive\Users\Default User\NtUser.dat"
             Set-RegistryValue -Key 'HKLM:\DefaultUser\Software\Policies\Microsoft\Office16.0\Outlook\Cached Mode' -Name CalendarSyncWindowSetting -Type DWord -Value $CalendarSyncWindowSetting
-            If ($CalendarSyncMonths -ne 'Not Configured')
-            {
+            If ($CalendarSyncMonths -ne 'Not Configured') {
                 Set-RegistryValue -Key 'HKCU:\DefaultUser\Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -Name CalendarSyncWindowSettingMonths -Type DWord -Value $CalendarSyncMonths
             }
             REG UNLOAD HKLM\DefaultUser
@@ -675,13 +644,11 @@ Function Prepare-Image
         Update-LGPORegistryTxt -scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue HideUpdateNotifications -RegistryType DWord -RegistryData 1
         # Hide and Disable Updates
         Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue HideEnableDisableUpdates -RegistryType DWord -RegistryData 1
-        If ($DisableUpdates)
-        {
+        If ($DisableUpdates) {
             # Disable Updates            
             Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 0
         }
-        else
-        {
+        else {
             # Enable Updates
             Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 1
         }
@@ -692,11 +659,10 @@ Function Prepare-Image
     #endregion Office 365
 
     #region OneDrive
-    If ( $OneDriveInstall )
-    {
+    If ( $OneDriveInstall ) {
         $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/install-office-on-wvd-master-image"
 
-        $Script:Section='OneDrive'
+        $Script:Section = 'OneDrive'
         Write-Log -Message "Starting OneDrive installation and configuration in accordance with `"$ref`"." -Source 'Main'
 
         $output = "$PSScriptRoot\onedrivesetup.exe"
@@ -723,17 +689,14 @@ Function Prepare-Image
 
         $InstallDir = "${env:ProgramFiles(x86)}\Microsoft OneDrive"
 
-        If (Test-Path $installDir)
-        {
+        If (Test-Path $installDir) {
             $ADMX = (Get-ChildItem $InstallDir -include '*.admx' -recurse)
-            ForEach($file in $ADMX)
-            {
+            ForEach ($file in $ADMX) {
                 Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions" -Force
             }
 
-            $ADML = (get-childitem $InstallDir -include '*.adml' -recurse | Where-object {$_.Directory -like '*adm'})
-            ForEach($file in $ADML)
-            {
+            $ADML = (get-childitem $InstallDir -include '*.adml' -recurse | Where-object { $_.Directory -like '*adm' })
+            ForEach ($file in $ADML) {
                 Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
             }
         }
@@ -745,8 +708,7 @@ Function Prepare-Image
         Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'SilentAccountConfig' -RegistryType DWord -RegistryData 1
         Write-Log -Message "Now Enabling Files on Demand" -Source 'Main'
         Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'FilesOnDemandEnabled' -RegistryType DWORD -RegistryData 1
-        If ($AADTenantID -and $AADTenantID -ne '')
-        {
+        If ($AADTenantID -and $AADTenantID -ne '') {
             Write-Log "Now applying OneDrive for Business Known Folder Move Silent Configuration Settings." -Source 'Main'
             Update-LGPORegistryTxt -Scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue 'KFMSilentOptIn' -RegistryType String -RegistryData "$AADTenantID"
         }
@@ -758,13 +720,12 @@ Function Prepare-Image
 
     #region Teams
 
-    If ( $TeamsInstall )
-    {
+    If ( $TeamsInstall ) {
         # Download and install Microsoft Teams 
         $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/teams-on-wvd"
         # Link to downloads: https://docs.microsoft.com/en-us/microsoftteams/teams-for-vdi#deploy-the-teams-desktop-app-to-the-vm
 
-        $Script:Section='Teams'
+        $Script:Section = 'Teams'
 
         Write-Log -Message "Starting Teams Installation and Configuration in accordance with `"$ref`"." -Source 'Main'
         $VSRedist = "$PSScriptRoot\VSRedist.exe"
@@ -790,7 +751,7 @@ Function Prepare-Image
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\Teams" -Name IsWVDEnvironment -Value 1 -Type DWord
 
         Write-Log -message "Starting installation of Microsoft Teams for all users." -Source 'Main'
-         # Command line looks like: msiexec /i <msi_name> /l*v < install_logfile_name> ALLUSER=1
+        # Command line looks like: msiexec /i <msi_name> /l*v < install_logfile_name> ALLUSER=1
         $Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1" 
         Write-Log -message "Running `"msiexec.exe $Arguments`"" -Source 'Main'
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
@@ -803,9 +764,8 @@ Function Prepare-Image
 
     #region FSLogix Agent
 
-    If ($FSLogixInstall)
-    {
-        $Script:Section='FSLogix Agent'
+    If ($FSLogixInstall) {
+        $Script:Section = 'FSLogix Agent'
         Write-Log "Starting FSLogix Agent Installation and Configuration." -Source 'Main'
         Write-Log "Downloading FSLogix Agent from Microsoft." -Source 'Main'
         $output = "$PSScriptRoot\fslogix.zip"
@@ -817,17 +777,14 @@ Function Prepare-Image
         Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
         $admx = Get-ChildItem "$destpath" -Filter "*.admx" -Recurse
         $adml = Get-ChildItem "$destpath" -filter "*.adml" -Recurse
-        ForEach($file in $admx)
-        {
+        ForEach ($file in $admx) {
             Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions" -Force
         }
-        ForEach($file in $adml)
-        {
+        ForEach ($file in $adml) {
             Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
         }
-        $Installer="$PSScriptRoot\fslogix\x64\release\fslogixappssetup.exe"
-        If (Test-Path $Installer)
-        {
+        $Installer = "$PSScriptRoot\fslogix\x64\release\fslogixappssetup.exe"
+        If (Test-Path $Installer) {
             Write-Log -Message "Installation File: `"$installer`" successfully extracted." -Source 'Main'
         }
 
@@ -841,8 +798,7 @@ Function Prepare-Image
         Write-Log -Message "Now performing FSLogix Configuration if enabled." -Source 'Main'
         $RegistryKey = 'HKLM:\Software\FSLogix\Profiles'
 
-        if ( $FSLogixVHDPath -and $FSLogixVHDPath -ne '' )
-        {
+        if ( $FSLogixVHDPath -and $FSLogixVHDPath -ne '' ) {
             Write-Log -Message "Enabling FSLogix Profile Container in Registry"
             Set-RegistryValue -Key $RegistryKey -Name 'Enabled' -Value 1 -Type DWord
             Write-Log -Message "Setting VHDLocation to `"$FSLogixVHDPath`" in registry."
@@ -860,10 +816,9 @@ Function Prepare-Image
     #endregion FSLogix Agent
 
     #region Edge Enterprise
-    If ( $EdgeInstall )
-    {
+    If ( $EdgeInstall ) {
 
-        $Script:Section='Edge for Business'
+        $Script:Section = 'Edge for Business'
         $ref = 'https://docs.microsoft.com/en-us/deployedge/deploy-edge-with-configuration-manager'
         # Disable Edge Updates
         Write-Log -Message "Starting Microsoft Edge Enterprise Installation and Configuration in accordance with `"$ref`"." -Source 'Main'
@@ -879,16 +834,13 @@ Function Prepare-Image
         Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
         $admx = Get-ChildItem "$destpath" -Filter "*.admx" -Recurse
         $adml = Get-ChildItem "$destpath" -filter "*.adml" -Recurse
-        ForEach($file in $admx)
-        {
+        ForEach ($file in $admx) {
             Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions" -Force
         }
-        ForEach($file in $adml)
-        {
+        ForEach ($file in $adml) {
             Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
         }
-        If ($DisableUpdates)
-        {
+        If ($DisableUpdates) {
             Write-Log -Message "Now disabling Edge Automatic Updates" -Source 'Main'
             Update-LGPORegistryTxt -scope 'Computer' -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue 'UpdateDefault' -RegistryType DWORD -RegistryData 0
         }
@@ -911,7 +863,7 @@ Function Prepare-Image
 
     #region Workplace Join
 
-    $Script:Section='WorkPlace Join'
+    $Script:Section = 'WorkPlace Join'
     Write-Log "Now disabling Workplace Join to prevent issue with Office Activation." -Source 'Main'
     # Block domain joined machines from inadvertently getting Azure AD registered by users.
     Set-RegistryValue -Key 'HKLM:\Software\Policies\Microsoft\Windows\WorkplaceJoin' -Name BlockAADWorkplaceJoin -Type DWord -Value 1
@@ -920,7 +872,7 @@ Function Prepare-Image
 
     #region RemoveApps
     If ($RemoveApps) {
-        $Script:Section='Remove Apps'
+        $Script:Section = 'Remove Apps'
         Write-Log "Now Removing Built-in Windows Apps." -Source 'Main'
         & "$PSScriptRoot\RemoveApps\Remove-Apps.ps1"
     }  
@@ -928,14 +880,13 @@ Function Prepare-Image
 
     #region WVD Image Settings
 
-    $Script:Section='WVD Image Settings'
+    $Script:Section = 'WVD Image Settings'
 
     $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/set-up-customize-master-image"
 
     Write-Log "Now starting to apply $Script:Section in accordance with `"$ref`"." -Source 'Main'
 
-    If ($DisableUpdates)
-    {
+    If ($DisableUpdates) {
         Write-Log "Disabling Windows Updates via Group Policy setting" -Source 'Main'
         Update-LGPORegistryTxt -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -RegistryValue 'NoAutoUpdate' -RegistryType 'Dword' -RegistryData 1
     }
@@ -949,12 +900,10 @@ Function Prepare-Image
     # Fix issues with Doctor Watson Crashes
     # List of Registry Values from https://docs.microsoft.com/en-us/windows/win32/wer/wer-settings
     Write-Log -Message "Removing Corporate Windows Error Reporting Server if set in registry." -Source 'Main'
-    $RegValues = "CorporateWERDirectory", "CorporateWERPortNumber","CorporateWERServer","CorporateWERUseAuthentication","CorporateWERUseSSL"
+    $RegValues = "CorporateWERDirectory", "CorporateWERPortNumber", "CorporateWERServer", "CorporateWERUseAuthentication", "CorporateWERUseSSL"
     $RegPath = "HKLM:\Software\Microsoft\Windows\Windows Error Reporting"
-    ForEach ($value in $regvalues)
-    {
-        If (Get-ItemProperty $RegPath -name $value -ErrorAction SilentlyContinue)
-        {
+    ForEach ($value in $regvalues) {
+        If (Get-ItemProperty $RegPath -name $value -ErrorAction SilentlyContinue) {
             Remove-ItemProperty $RegPath -Name $Value -Force -ErrorAction SilentlyContinue
         }
     }
@@ -978,7 +927,7 @@ Function Prepare-Image
 
     #region Generic VHD Image Prep
 
-    $Script:Section='Azure VHD Image Settings'
+    $Script:Section = 'Azure VHD Image Settings'
 
     # The following steps are from: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/prepare-for-upload-vhd-image
     Write-Log -Message "Performing Configuration spelled out in `"https://docs.microsoft.com/en-us/azure/virtual-machines/windows/prepare-for-upload-vhd-image`"." -Source 'Main'
@@ -1041,13 +990,12 @@ Function Prepare-Image
     Set-RegistryValue -Key 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\Winstations\RDP-Tcp' -name "MaxInstanceCount" -Value 4294967295 -Type DWord
 
     # Remove any self signed certs
-    if ((Get-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp').Property -contains "SSLCertificateSHA1Hash")
-    {
+    if ((Get-Item -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp').Property -contains "SSLCertificateSHA1Hash") {
         Remove-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SSLCertificateSHA1Hash" -Force
     }
 
     # Turn on Firewall
-    Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True
+    Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled True
 
     # Allow WinRM
     Set-RegistryValue -Key 'HKLM:\System\CurrentControlSet\Services\WinRM' -Name Start -Value 2 -Type DWord
@@ -1069,7 +1017,7 @@ Function Prepare-Image
     Write-Log "Completed $Script:Section script section." -Source 'Main'
     #endregion
 
-    $Script:Section='Cleanup'
+    $Script:Section = 'Cleanup'
     Write-Log "Outputing Group Policy Results and Local GPO Backup to `"$Script:LogDir\LGPO`"" -Source 'Main'
     Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -PassThru -Wait
     Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -PassThru -Wait
@@ -1084,8 +1032,7 @@ Function Prepare-Image
 
 #endregion
 
-If ($DisplayForm)
-{
+If ($DisplayForm) {
     [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
     [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Drawing")
     [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -1116,37 +1063,35 @@ If ($DisplayForm)
     $Execute.location = New-Object System.Drawing.Point(20, 648)
     $Execute.Font = 'Microsoft Sans Serif,18,style=Bold'
     $Execute.ForeColor = "#ffffff"
-    $Execute.Add_Click({
-        $Office365Install = $InstallOffice365.Checked
-        $EmailCacheTime = $EmailCacheMonths.text
-        $CalendarSync = $CalendarSyncMode.text
-        $CalendarSyncMonths = $CalSyncTime.text
-        $OneDriveInstall = $InstallOneDrive.Checked
-        If ($TenantID.text -ne '')
-        {
-            $AADTenantID = $TenantID.text
-        }
-        $FSLogixInstall = $InstallFSLogix.Checked
-        If ($VHDPath.text -ne '')
-        {
-            $FSLogixVHDPath = $VHDPath.text
-        }
-        $TeamsInstall = $InstallTeams.Checked
-        $EdgeInstall = $InstallEdge.Checked
-        $DisableUpdates = $DisableWU.Checked
-        $CleanupImage = $RunCleanMgr.Checked
-        $RemoveApps = $AppRemove.Checked
-        $WVDGoldenImagePrep.Close()
-        Prepare-Image `
-            -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
-            -OneDriveInstall $OneDriveInstall -AADTenantID $AADTenantID `
-            -FSLogixInstall $FSLogixInstall -FSLogixVHDPath $FSLogixVHDPath `
-            -TeamsInstall $TeamsInstall `
-            -EdgeInstall $EdgeInstall `
-            -DisableUpdates $DisableUpdates `
-            -CleanupImage $CleanupImage `
-            -RemoveApps $RemoveApps
-    })
+    $Execute.Add_Click( {
+            $Office365Install = $InstallOffice365.Checked
+            $EmailCacheTime = $EmailCacheMonths.text
+            $CalendarSync = $CalendarSyncMode.text
+            $CalendarSyncMonths = $CalSyncTime.text
+            $OneDriveInstall = $InstallOneDrive.Checked
+            If ($TenantID.text -ne '') {
+                $AADTenantID = $TenantID.text
+            }
+            $FSLogixInstall = $InstallFSLogix.Checked
+            If ($VHDPath.text -ne '') {
+                $FSLogixVHDPath = $VHDPath.text
+            }
+            $TeamsInstall = $InstallTeams.Checked
+            $EdgeInstall = $InstallEdge.Checked
+            $DisableUpdates = $DisableWU.Checked
+            $CleanupImage = $RunCleanMgr.Checked
+            $RemoveApps = $AppRemove.Checked
+            $WVDGoldenImagePrep.Close()
+            Prepare-Image `
+                -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
+                -OneDriveInstall $OneDriveInstall -AADTenantID $AADTenantID `
+                -FSLogixInstall $FSLogixInstall -FSLogixVHDPath $FSLogixVHDPath `
+                -TeamsInstall $TeamsInstall `
+                -EdgeInstall $EdgeInstall `
+                -DisableUpdates $DisableUpdates `
+                -CleanupImage $CleanupImage `
+                -RemoveApps $RemoveApps
+        })
 
     $ScriptTitle = New-Object system.Windows.Forms.Label
     $ScriptTitle.text = "WVD Golden VHD Prep Script"
@@ -1164,11 +1109,11 @@ If ($DisplayForm)
     $InstallOffice365.location = New-Object System.Drawing.Point(48, 142)
     $InstallOffice365.Font = 'Microsoft Sans Serif,14'
 
-    $InstallOffice365.Add_CheckStateChanged({
-        $EmailCacheMonths.Enabled = $InstallOffice365.Checked
-        $CalendarSyncMode.Enabled = $InstallOffice365.Checked
-        $CalSyncTime.Enabled = $InstallOffice365.Checked
-    })
+    $InstallOffice365.Add_CheckStateChanged( {
+            $EmailCacheMonths.Enabled = $InstallOffice365.Checked
+            $CalendarSyncMode.Enabled = $InstallOffice365.Checked
+            $CalSyncTime.Enabled = $InstallOffice365.Checked
+        })
 
     $labelEmailCache = New-Object system.Windows.Forms.Label
     $labelEmailCache.text = "Cache email for:"
@@ -1184,7 +1129,7 @@ If ($DisplayForm)
     $EmailCacheMonths.height = 29
     $EmailCacheMonths.location = New-Object System.Drawing.Point(64, 205)
     $EmailCacheMonths.Font = 'Microsoft Sans Serif,12'
-    $EmailCacheMonths.Enabled=$false
+    $EmailCacheMonths.Enabled = $false
 
     $labelCalSyncType = New-Object system.Windows.Forms.Label
     $labelCalSyncType.text = "Cal Sync Type"
@@ -1200,7 +1145,7 @@ If ($DisplayForm)
     $CalendarSyncMode.height = 29
     $CalendarSyncMode.location = New-Object System.Drawing.Point(203, 205)
     $CalendarSyncMode.Font = 'Microsoft Sans Serif,12'
-    $CalendarSyncMode.Enabled=$false
+    $CalendarSyncMode.Enabled = $false
 
     $labelCalSyncTime = New-Object system.Windows.Forms.Label
     $labelCalSyncTime.text = "Cal Sync Months"
@@ -1216,7 +1161,7 @@ If ($DisplayForm)
     $CalSyncTime.height = 29
     $CalSyncTime.location = New-Object System.Drawing.Point(410, 205)
     $CalSyncTime.Font = 'Microsoft Sans Serif,12'
-    $CalSyncTime.Enabled=$false
+    $CalSyncTime.Enabled = $false
 
     $InstallFSLogix = New-Object system.Windows.Forms.CheckBox
     $InstallFSLogix.text = "Install FSLogix Agent"
@@ -1226,9 +1171,9 @@ If ($DisplayForm)
     $InstallFSLogix.location = New-Object System.Drawing.Point(48, 250)
     $InstallFSLogix.Font = 'Microsoft Sans Serif,14'
 
-    $InstallFSLogix.Add_CheckStateChanged({
-        $VHDPath.Enabled = $InstallFSLogix.Checked
-    })
+    $InstallFSLogix.Add_CheckStateChanged( {
+            $VHDPath.Enabled = $InstallFSLogix.Checked
+        })
 
     $LabelVHDLocation = New-Object system.Windows.Forms.Label
     $LabelVHDLocation.text = "FSLogix VHD Location"
@@ -1245,7 +1190,7 @@ If ($DisplayForm)
     $VHDPath.height = 20
     $VHDPath.location = New-Object System.Drawing.Point(270, 295)
     $VHDPath.Font = 'Microsoft Sans Serif,12'
-    $VHDPath.Enabled=$false
+    $VHDPath.Enabled = $false
 
     $InstallOneDrive = New-Object system.Windows.Forms.CheckBox
     $InstallOneDrive.text = "Install OneDrive per Machine "
@@ -1255,9 +1200,9 @@ If ($DisplayForm)
     $InstallOneDrive.location = New-Object System.Drawing.Point(48, 340)
     $InstallOneDrive.Font = 'Microsoft Sans Serif,14'
 
-    $InstallOneDrive.Add_CheckStateChanged({
-        $TenantID.Enabled = $InstallOneDrive.Checked
-    })
+    $InstallOneDrive.Add_CheckStateChanged( {
+            $TenantID.Enabled = $InstallOneDrive.Checked
+        })
 
     $LabelAADTenant = New-Object system.Windows.Forms.Label
     $LabelAADTenant.text = "AAD Tenant ID (Configures KFM)"
@@ -1274,7 +1219,7 @@ If ($DisplayForm)
     $TenantID.height = 20
     $TenantID.location = New-Object System.Drawing.Point(251, 385)
     $TenantID.Font = 'Microsoft Sans Serif,12'
-    $TenantID.Enabled=$false
+    $TenantID.Enabled = $false
 
     $InstallTeams = New-Object system.Windows.Forms.CheckBox
     $InstallTeams.text = "Install Microsoft Teams per Machine"
@@ -1332,8 +1277,7 @@ If ($DisplayForm)
 
     [void]$WVDGoldenImagePrep.ShowDialog()
 }
-Else
-{
+Else {
     Prepare-Image `
         -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
         -OneDriveInstall $OneDriveInstall -AADTenantID $AADTenantID `
