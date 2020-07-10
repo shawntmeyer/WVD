@@ -103,7 +103,7 @@ If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -
 [uri]$OneDriveUrl = "https://go.microsoft.com/fwlink/p/?linkid=2121808"
 [uri]$VSRedistUrl = "https://aka.ms/vs/16/release/vc_redist.x64.exe"
 [uri]$WebSocketUrl = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE4vkL6"
-[uri]$TeamsUrl = "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.12058/Teams_windows_x64.msi"
+[uri]$TeamsUrl = "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.13565/Teams_windows_x64.msi"
 [uri]$FSLogixUrl = "https://go.microsoft.com/fwlink/?linkid=2084562"
 [uri]$EdgeUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/10c99438-300d-44e2-b9d3-789023d3dc51/MicrosoftEdgeEnterpriseX64.msi"
 [uri]$EdgeTemplatesUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/35489c34-cd12-4773-a512-d03351cb8a42/MicrosoftEdgePolicyTemplates.zip"
