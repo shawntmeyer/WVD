@@ -1071,7 +1071,6 @@ If ($DisplayForm) {
     $Execute.Font = 'Microsoft Sans Serif,18,style=Bold'
     $Execute.ForeColor = "#ffffff"
     $Execute.Add_Click( {
-            $MarketPlaceSource = $MarketPlaceImage.Checked
             $Office365Install = $InstallOffice365.Checked
             $EmailCacheTime = $EmailCacheMonths.text
             $CalendarSync = $CalendarSyncMode.text
@@ -1091,7 +1090,6 @@ If ($DisplayForm) {
             $RemoveApps = $AppRemove.Checked
             $WVDGoldenImagePrep.Close()
             Invoke-ImageCustomization `
-                -MarketPlaceSource $MarketPlaceSource `
                 -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
                 -OneDriveInstall $OneDriveInstall -AADTenantID $AADTenantID `
                 -FSLogixInstall $FSLogixInstall -FSLogixVHDPath $FSLogixVHDPath `
@@ -1109,15 +1107,6 @@ If ($DisplayForm) {
     $ScriptTitle.height = 10
     $ScriptTitle.location = New-Object System.Drawing.Point(40, 40)
     $ScriptTitle.Font = 'Microsoft Sans Serif,30,style=Bold'
-
-    $MarketPlaceImage = New-Object system.Windows.Forms.CheckBox
-    $MarketPlaceImage.text = "Source image is from Azure Marketplace"
-    $MarketPlaceImage.AutoSize = $false
-    $MarketPlaceImage.width = 500
-    $MarketPlaceImage.height = 30
-    $MarketPlaceImage.location = New-Object System.Drawing.Point(30, 110)
-    $MarketPlaceImage.Font = 'Microsoft Sans Serif,14'
-    $MarketPlaceImage.Checked = $true
 
     $InstallOffice365 = New-Object system.Windows.Forms.CheckBox
     $InstallOffice365.text = "Install Office 365 ProPlus"
@@ -1291,7 +1280,7 @@ If ($DisplayForm) {
         [void] $CalendarSyncMode.Items.Add($Item)
     }
 
-    $WVDGoldenImagePrep.controls.AddRange(@($Execute, $ScriptTitle, $CalendarSyncMode, $EmailCacheMonths, $CalSyncTime, $VHDPath, $TenantID, $MarketPlaceImage, $InstallOffice365, $InstallFSLogix, $InstallOneDrive, $DisableWU, $InstallTeams, $InstallEdge, $AppRemove, $RunCleanMgr, $LabelVHDLocation, $LabelAADTenant, $labelEmailCache, $labelCalSyncType, $labelCalSyncTime))
+    $WVDGoldenImagePrep.controls.AddRange(@($Execute, $ScriptTitle, $CalendarSyncMode, $EmailCacheMonths, $CalSyncTime, $VHDPath, $TenantID, $InstallOffice365, $InstallFSLogix, $InstallOneDrive, $DisableWU, $InstallTeams, $InstallEdge, $AppRemove, $RunCleanMgr, $LabelVHDLocation, $LabelAADTenant, $labelEmailCache, $labelCalSyncType, $labelCalSyncTime))
 
     [void]$WVDGoldenImagePrep.ShowDialog()
 }
