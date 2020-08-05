@@ -105,8 +105,7 @@ If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -
 [uri]$WebSocketUrl = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE4vkL6"
 [uri]$TeamsUrl = "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.13565/Teams_windows_x64.msi"
 [uri]$FSLogixUrl = "https://go.microsoft.com/fwlink/?linkid=2084562"
-[uri]$EdgeUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/10c99438-300d-44e2-b9d3-789023d3dc51/MicrosoftEdgeEnterpriseX64.msi"
-[uri]$EdgeTemplatesUrl = "http://dl.delivery.mp.microsoft.com/filestreamingservice/files/35489c34-cd12-4773-a512-d03351cb8a42/MicrosoftEdgePolicyTemplates.zip"
+[uri]$EdgeUpdatesAPIURL = "https://edgeupdates.microsoft.com/api/products?view=enterprise"
 
 #endregion
 
@@ -832,12 +831,23 @@ Function Invoke-ImageCustomization {
 
         $dirTemplates = "$PSScriptRoot\Edge\Templates"
 
-        Write-Log "Now Downloading Edge Chromium Administrative Templates." -Source 'Main'
-        $output = "$PSScriptRoot\MicrosoftEdgePolicyTemplates.zip"
-        Get-InternetFile -url $EdgeTemplatesUrl -outputfile $output
+        Write-Log "Now downloading latest Edge installer and Administrative Templates." -Source 'Main'
+
+        $EdgeUpdatesJSON = Invoke-WebRequest -Uri $EdgeUpdatesAPIURL -UseBasicParsing
+        $content = $EdgeUpdatesJSON.content | ConvertFrom-Json
+        $policyfiles = ($content | Where-Object {$_.Product -eq 'Policy'}).releases    
+        $latestpolicyfiles = $policyfiles | Sort-Object ProductVersion | Select-Object -last 1        
+        $EdgeTemplatesUrl = $latestpolicyfiles.artifacts | Where-Object {$_.location -like '*.zip'} | Select-Object -Property Location         
+        $Edgereleases = ($content | Where-Object {$_.Product -eq 'Stable'}).releases
+        $latestrelease = $Edgereleases | Where-Object {$_.Platform -eq 'Windows' -and $_.Architecture -eq 'x64'} | Sort-Object ProductVersion | Select-Object -last 1
+        $EdgeUrl = $latestrelease.artifacts.location
+                
+        $templateszip = "$PSScriptRoot\MicrosoftEdgePolicyTemplates.zip"
+        Get-InternetFile -url $EdgeTemplatesUrl -outputfile $templateszip
         $destPath = "$PSScriptRoot\EdgeTemplates"
-        Expand-Archive $output -DestinationPath $destpath -Force
-        Start-Sleep -Seconds 5
+        Expand-Archive $templateszip -DestinationPath $destpath -Force
+        $msifile = "$PSScriptRoot\MicrosoftEdgeEnteprisex64.msi"
+        Get-InternetFile -url $EdgeUrl -outputfile $msifile
         Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
         $admx = Get-ChildItem "$destpath" -Filter "*.admx" -Recurse
         $adml = Get-ChildItem "$destpath" -filter "*.adml" -Recurse
@@ -851,12 +861,8 @@ Function Invoke-ImageCustomization {
             Write-Log -Message "Now disabling Edge Automatic Updates" -Source 'Main'
             Update-LocalGPOTextFile -scope 'Computer' -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue 'UpdateDefault' -RegistryType DWORD -RegistryData 0
         }
-
-        Write-Log "Now Downloading Enterprise Version of Edge from Microsoft." -Source 'Main'
-        $output = "$PSScriptRoot\MicrosoftEdgeEnteprisex64.msi"
-        Get-InternetFile -url $EdgeUrl -outputfile $output
+     
         $installer = "msiexec.exe"
-        $MSIfile = "$output" 
         Write-Log -message "Starting installation of Microsoft Edge Enterprise." -Source 'Main'
         $Arguments = "/i `"$msifile`" /q" 
         Write-Log -message "Running `"$installer $Arguments`"" -Source 'Main'
