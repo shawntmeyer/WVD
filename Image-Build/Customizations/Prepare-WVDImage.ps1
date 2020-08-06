@@ -824,7 +824,7 @@ Function Invoke-ImageCustomization {
     #region Edge Enterprise
     If ( $EdgeInstall ) {
 
-        $Script:Section = 'Edge for Business'
+        $Script:Section = 'Edge Enterprise'
         $ref = 'https://docs.microsoft.com/en-us/deployedge/deploy-edge-with-configuration-manager'
         # Disable Edge Updates
         Write-Log -Message "Starting Microsoft Edge Enterprise Installation and Configuration in accordance with `"$ref`"." -Source 'Main'
@@ -837,7 +837,7 @@ Function Invoke-ImageCustomization {
         $content = $EdgeUpdatesJSON.content | ConvertFrom-Json
         $policyfiles = ($content | Where-Object {$_.Product -eq 'Policy'}).releases    
         $latestpolicyfiles = $policyfiles | Sort-Object ProductVersion | Select-Object -last 1        
-        $EdgeTemplatesUrl = $latestpolicyfiles.artifacts | Where-Object {$_.location -like '*.zip'} | Select-Object -Property Location         
+        $EdgeTemplatesUrl = ($latestpolicyfiles.artifacts | Where-Object {$_.location -like '*.zip'}).Location         
         $Edgereleases = ($content | Where-Object {$_.Product -eq 'Stable'}).releases
         $latestrelease = $Edgereleases | Where-Object {$_.Platform -eq 'Windows' -and $_.Architecture -eq 'x64'} | Sort-Object ProductVersion | Select-Object -last 1
         $EdgeUrl = $latestrelease.artifacts.location
