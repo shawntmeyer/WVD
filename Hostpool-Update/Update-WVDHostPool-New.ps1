@@ -1,3 +1,4 @@
+#Requires -Modules AZ, AZ.DesktopVirtualization, OMSIngestionAPI
 <#
 .SYNOPSIS
 Run the Image Update process for the given host pool resource
@@ -48,7 +49,7 @@ Optional. Will promt user to confirm the action to create invasible commands
 Optional.  Dry run of the script
 
 .EXAMPLE
-Invoke-UpdateHostPool @functionInput
+Update-WVDHostPool @functionInput
 
 Invoke the update host pool orchestration script with the given parameters
 #>
@@ -59,6 +60,7 @@ param
     [string] $HostPoolName,
 
     [Parameter(Mandatory = $true)]
+    [Alias('ResourceGroupName')]
     [string] $HostPoolRGName,
 
     [Parameter(Mandatory = $true)]
@@ -96,7 +98,7 @@ $ErrorActionPreference = "Stop"
 #region SharedFunctions
 
 function Add-LogEntry {
-    <#
+<#
 .SYNOPSIS
 Add logs to log analytics workspace
 #>
@@ -114,7 +116,7 @@ Add logs to log analytics workspace
         [string]$LogType = 'WVDHostpoolUpdate_CL',
 
         [Parameter(mandatory = $false)]
-        [string] $TimeDifference
+        [string]$TimeDifference
     )
 
     Write-Output $LogMessageObj.msg
@@ -172,7 +174,7 @@ Convert from UTC to Local time
 function Remove-AzVirtualMachine {
     <#
 .SYNOPSIS
-    This function is used to remove Azure VMs as well as attached disks. By default, this function creates a job
+    This function is used to remove Azure VMs as well as attached disks and NICs. By default, this function creates a job
     due to the time it takes to remove an Azure VM.
     
 .EXAMPLE
@@ -201,9 +203,6 @@ function Remove-AzVirtualMachine {
         [Parameter(Mandatory = $true, ValueFromPipelineByPropertyName)]
         [ValidateNotNullOrEmpty()]
         [string]$ResourceGroupName,
-
-        [Parameter()]
-        [pscredential]$Credential,
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
@@ -386,7 +385,7 @@ catch {
     exit
 }
 
-Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "Starting WVD Hostpool Update: Current Date Time is: $CurrentDateTime" }
+Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "Starting WVD Hostpool `"$($HostpoolName)`" Update: Current Date Time is: $CurrentDateTime" }
 
 # Get list of session hosts in hostpool
 $SessionHosts = Get-AzWvdSessionHost -HostPoolName $HostpoolName -ResourceGroupName $HostPoolRGName -ErrorAction Stop | Sort-Object SessionHostName
@@ -406,26 +405,29 @@ $RunningOldHosts = @()
 # Analyze the SessionHosts and Azure VM instances for applicability and to determine power state. Delete any turned off VMs if DeleteVM is specified.
 foreach ($SessionHost in $SessionHosts) {
     $SessionHostName = $SessionHost.Name.Split("/")[1]
-    Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "Analyzing `"$($SessionHostName)`" for image version and power state." }
+    Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "Determining if `"$SessionHostName`" is based on target image version and if it is powered on." }
     $VMName = $SessionHostName.split('.')[0]
     $VMInstance = Get-AzVM -Status -Name $VMName
 
-    # Check if VM has new Image or old image based on ImageVersion tag Value
-    if($VMInstance.Tags.Keys -notcontains 'ImageVersion'){
+    # Check if VM has new Image or old image based on ImageVersion tag Value and update VM Tags if needed.
+    if ($VMInstance.Tags.Keys -notcontains 'ImageVersion') {
         Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "First script run. Adding required tags to VM and skipping further actions." }
-        $null = New-AzTag -ResourceId $VMInstance.id -Tag  @{'ImageVersion' = $TargetImageVersion }
+        $null = Update-AzTag -ResourceId $vminstance.id -Tag @{'ImageVersion' = $TargetImageVersion } -Operation Merge
         continue
     }
     elseif ($VMInstance.Tags.ImageVersion -eq $TargetImageVersion) {
         Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "$VMName is based on correct image version, skipping this VM." }
+        $null = Update-AzTag -ResourceId $VMInstance.id -Tag  @{'ExemptAutoScale' = $false } # Used e.g. by the scaling script to identify machines to process
         continue
-    } else {
-        Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "$VMName is not based on correct image version." }
-        $null = New-AzTag -ResourceId $VMInstance.id -Tag  @{'ExemptAutoScale' = $true } # Used e.g. by the scaling script to identify machines to ignore
+    }
+    else {
+        Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "$VMName is not based on correct image version. Processing this VM." }
+        $null = Update-AzTag -ResourceId $VMInstance.id -Tag  @{'ExemptAutoScale' = $true } # Used e.g. by the scaling script to identify machines to ignore
     }        
 
     # Set Drain Mode if not already set
     if ($SessionHost.AllowNewSession) {
+        Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "Setting drain mode on `"$SessionHostName`"." }
         Update-AzWvdSessionHost -Name $SessionHostName -HostPoolName $HostPoolName -ResourceGroupName $HostPoolRGName -AllowNewSession:$False | Out-Null
     }
 
@@ -440,7 +442,7 @@ foreach ($SessionHost in $SessionHosts) {
             Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "`"$($VMName)`" is currently powered off." }
             if ($DeleteVM -eq $True -and $DeadlinePassed -eq $true) {
                 Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "The `"DeleteVM`" option is specified. The VM: `"$($VMName)`" is being removed from hostpool and deleted." }
-                Get-AzVM -Name $VMName | Remove-AzVirtualMachine
+                Get-AzVM -Name $VMName | Remove-AzVirtualMachine -LAInputObject $LAInputObject
                 Remove-AzWvdSessionHost -HostPoolName $HostPoolName -ResourceGroupName $HostPoolRGName -Name $SessionHostName
             }
         }
@@ -490,13 +492,13 @@ if ($NumberofRunningHosts -gt 0) {
                     If ($ExistingSessions -eq 0) {
                         if ($DeleteVM -eq $True) {
                             Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "The `"DeleteVM`" option is specified. The stopped VM: $VMName is being removed from hostpool and deleted." }
-                            Get-AzVM -Name $VMName | Remove-AzVirtualMachine
+                            Get-AzVM -Name $VMName | Remove-AzVirtualMachine -LAInputObject $LAInputObject
                             Remove-AzWvdSessionHost -HostPoolName $HostPoolName -ResourceGroupName $HostPoolRGName -Name $SessionHostName
                         }
                         else {
                             # Shutdown the Azure VM
                             Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "Stopping Azure VM: $VMName." }
-                            Stop-SessionHost @LAInputObject -VMName $VMName
+                            Stop-SessionHost -LAInputObject $LAInputObject -VMName $VMName
                         }
                     }
                     else {
@@ -507,7 +509,6 @@ if ($NumberofRunningHosts -gt 0) {
                     foreach ($Session in $UserSessions) {
                         $SplitSessionID = $Session.Id.Split("/")
                         $SessionID = $SplitSessionID[$SplitSessionID.Count - 1]
-                        write-output "User $($Session.ActiveDirectoryUserName) has Session ID: $SessionID"
                         if ($session.SessionState -eq "Active") {
                             # Send notification
                             try {
@@ -524,14 +525,14 @@ if ($NumberofRunningHosts -gt 0) {
             else {
                 if ($DeleteVM -eq $True -and $DeadlinePassed -eq $true) {
                     Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "The `"DeleteVM`" option is specified. The $VMName is being removed from hostpool and deleted." }
-                    Get-AzVM -Name $VMName | Remove-AzVirtualMachine
+                    Get-AzVM -Name $VMName | Remove-AzVirtualMachine -LAInputObject $LAInputObject
                     Remove-AzWvdSessionHost -HostPoolName $HostPoolName -ResourceGroupName $HostPoolRGName -Name $SessionHostName
                 }
                 else {
                     # Shutdown the Azure VM
                     Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "There are no user sessions on $SessionHostName." }
                     Add-LogEntry @LAInputObject -LogMessageObj @{ hostpool = $HostpoolName; msg = "Stopping Azure VM: `"$($VMName)`"." }
-                    Stop-SessionHost @LAInputObject -VMName $VMName
+                    Stop-SessionHost -LAInputObject $LAInputObject -VMName $VMName
                 }
             }
         }    
