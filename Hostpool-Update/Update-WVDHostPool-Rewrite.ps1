@@ -77,8 +77,7 @@ Update-WVDHostPool -HostPoolName 'test-cse-hp' -ResourceGroupName 'WVD-HostPool-
 
 Invoke the update host pool orchestration script with the given parameters
 #>
-function Update-WVDHostPool {
-
+Function Update-WVDHostPool {
     [CmdletBinding()]
     param
     (
@@ -98,7 +97,7 @@ function Update-WVDHostPool {
         [string] $UtcOffset,
         
         [Parameter(ParameterSetName = 'OtherCustomImage', Mandatory)]
-        [string] $TargetImageVersion,
+        [string] $CustomImageVersion,
 
         [Parameter(ParameterSetName = 'MarketplaceImage', Mandatory)]
         [string] $MarketplaceImageVersion,
@@ -663,10 +662,7 @@ function Update-WVDHostPool {
     }
 
     # Calculate Image Version from Parameters
-    If ($PSCmdlet.ParameterSetName -ne 'OtherCustomImage') {
-        Write-Log "Image version specified is '$TargetImageVersion'. Using this version as 'TargetImageVersion'."
-    }
-    elseif ($PSCmdlet.ParameterSetName -eq 'MarketplaceImage') {
+    if ($PSCmdlet.ParameterSetName -eq 'MarketplaceImage') {
         if ($MarketplaceImageVersion -eq 'latest') {
             Write-Log "Using Azure Marketplace Image"
             $getImageInputObject = @{
@@ -715,6 +711,10 @@ function Update-WVDHostPool {
             [Version]$TargetImageVersion = $SIGImageVersion
         }
     }
+    else {
+        Write-Log "Image version specified is '$CustomImageVersion'. Using this version as 'TargetImageVersion'."
+        [Version]$TargetImageVersion = $CustomImageVersion
+    }
 
     ## Handle user session DeadlineTime
     $DeadlineDateTime = [System.DateTime]::ParseExact($LogoffDeadline, 'yyyyMMddHHmm', $null)
@@ -759,8 +759,8 @@ function Update-WVDHostPool {
         Write-Log "There are no session hosts in the '$HostpoolName' Hostpool."
         exit
     }
-    $SessionHostCount = $SessionHosts.Count
-    Write-Log "Processing hostpool '$($HostpoolName)' which contains '$SessionHostCount' session hosts."
+
+    Write-Log "Processing hostpool '$($HostpoolName)' which contains '$($SessionHosts).Count' session hosts."
 
     # Initialize variables for tracking running old session hosts.
     $RunningObsoleteSessionHosts = @()
@@ -841,7 +841,7 @@ function Update-WVDHostPool {
 
             if ($SessionHostName.ToLower().Contains($VMInstance.Name.ToLower())) {
                 $UserSessions = Get-AzWvdUserSession -HostPoolName $HostPoolName -ResourceGroupName $ResourceGroupName -SessionHostName $SessionHostName
-                If ($null -eq $UserSessions -or $($UserSessions).Count -eq 0) {
+                If ((-not $UserSessions) -or ($($UserSessions).Count -eq 0)) {
                     # No user sessions on these Session Hosts
                     if ($DeleteVMDeadlinePassed) {
                         Write-Log "[$VMName] The 'DeleteVM Deadline' passed. The stopped VM is being scheduled to be deleted from resource group [$ResourceGroupName] and removed from hostpool [$HostPoolName]"
@@ -877,7 +877,7 @@ function Update-WVDHostPool {
                             # Recheck user sessions after logoff timeout
                             $UserSessions = Get-AzWvdUserSession -HostPoolName $HostpoolName -ResourceGroupName $ResourceGroupName -SessionHostName $SessionHostName     
                         }          
-     
+        
                         if (($UserSessions).Count -gt 0) {
                             Write-Log "[$VMName] There are [$UserSessions.Count] user sessions remaining on session host [$SessionHostName]"
                             foreach ($Session in $UserSessions) {
@@ -916,7 +916,7 @@ function Update-WVDHostPool {
                         }
                         else {
                             Write-Log "[$VMName] Unable to stop Azure VM: because it still has existing sessions."
-                        }
+                        }                      
                     }
                     Else {
                         # SessionHost Shutdown Deadline has not passed
@@ -966,3 +966,5 @@ function Update-WVDHostPool {
     }
     Set-ResourceGroupLifecycleTag @rgLevelTaggingInput
 }
+Write-Host 'Starting Function'
+Update-WVDHostpool -ResourceGroupName 'RG-WVD-Hostpools' -HostPoolName 'Windows10MSFullDesktop' -UtcOffset '-4:00' -LogOffMessageTitle 'Warning' -LogOffMessageBody 'Please logoff' -TargetImageVersion '1.0.0' -LimitSecondsToForceLogOffUser 60 -MaintenanceTagName 'ExemptAutoScale' -LogoffDeadline '202009222200'
