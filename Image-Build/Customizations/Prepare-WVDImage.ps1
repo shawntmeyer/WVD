@@ -103,7 +103,7 @@ If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -
 [uri]$OneDriveUrl = "https://go.microsoft.com/fwlink/p/?linkid=2121808"
 [uri]$VSRedistUrl = "https://aka.ms/vs/16/release/vc_redist.x64.exe"
 [uri]$WebSocketUrl = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE4AQBt"
-[uri]$TeamsUrl = "https://statics.teams.cdn.office.net/production-windows-x64/1.3.00.21759/Teams_windows_x64.msi"
+[uri]$teamsweburl = "https://docs.microsoft.com/en-us/microsoftteams/teams-for-vdi"
 [uri]$FSLogixUrl = "https://go.microsoft.com/fwlink/?linkid=2084562"
 [uri]$EdgeUpdatesAPIURL = "https://edgeupdates.microsoft.com/api/products?view=enterprise"
 
@@ -741,6 +741,9 @@ Function Invoke-ImageCustomization {
         Get-InternetFile -url $WebSocketUrl -outputfile $WebSocketMSI
 
         $TeamsMSI = "$PSScriptRoot\Teams_Windows_x64.msi"
+        $HTML = Invoke-WebRequest -Uri $TeamsWebUrl
+        $Links = $HTML.Links
+        $TeamsUrl = ($Links | Where-object {$_.OuterHTML -like '*Teams_windows_x64.msi*'}).href
         Get-InternetFile -url $TeamsUrl -outputfile $TeamsMSI
  
         Write-Log -message "Installing the latest VS Redistributables" -Source 'Main'
