@@ -102,8 +102,8 @@ If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -
 
 [uri]$OneDriveUrl = "https://go.microsoft.com/fwlink/p/?linkid=2121808"
 [uri]$VSRedistUrl = "https://aka.ms/vs/16/release/vc_redist.x64.exe"
-[uri]$WebSocketUrl = "https://query.prod.cms.rt.microsoft.com/cms/api/am/binary/RE4AQBt"
-[uri]$teamsweburl = "https://docs.microsoft.com/en-us/microsoftteams/teams-for-vdi"
+[uri]$WebSocketWebUrl = "https://docs.microsoft.com/en-us/azure/virtual-desktop/teams-on-wvd"
+[uri]$TeamsWebUrl = "https://docs.microsoft.com/en-us/microsoftteams/teams-for-vdi"
 [uri]$FSLogixUrl = "https://go.microsoft.com/fwlink/?linkid=2084562"
 [uri]$EdgeUpdatesAPIURL = "https://edgeupdates.microsoft.com/api/products?view=enterprise"
 
@@ -737,7 +737,10 @@ Function Invoke-ImageCustomization {
         $VSRedist = "$PSScriptRoot\VSRedist.exe"
         Get-InternetFile -url $VSRedistUrl -outputfile $VSRedist
 
-        $WebsocketMSI = "$PSScriptRoot\Websocket.msi"
+        $WebSocketMSI = "$PSScriptRoot\Websocket.msi"
+        $WebSocketHTML = Invoke-WebRequest -Uri $WebSocketWebUrl
+        $WebSocketLinks = $WebSocketHTML.Links
+        $WebSocketUrl = ($WebSocketLinks | Where-Object {$_.outerHTML -like '*WebSocket Service*'}).href
         Get-InternetFile -url $WebSocketUrl -outputfile $WebSocketMSI
 
         $TeamsMSI = "$PSScriptRoot\Teams_Windows_x64.msi"
