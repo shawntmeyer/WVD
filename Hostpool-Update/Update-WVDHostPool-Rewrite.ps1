@@ -21,9 +21,6 @@ Mandatory. Title of the popup the users receive when they get notified of their 
 .PARAMETER LogOffMessageBody
 Mandatory. Message of the popup the users receive when they get notified of their pending session logoff. The text "You will be automatically logged off at <DeadlineDateTime>." is appended
 
-.PARAMETER LimitSecondsToForceLogOffUser
-Optional. The number of seconds to provide the user as a grace period once the logoff deadline has passed before an automatic logoff occurs. The user will be presented with a message on the screen with the pending logoff and new logoff time displayed before the logoff is forced. Leave at 0 to not provide a grace period.
-
 .PARAMETER DeleteVMDeadline
 Optional. Controls when to delete the host pool VMs (Very Destructive) in yyyyMMddHHmm
 
@@ -133,10 +130,7 @@ Function Update-WVDHostPool {
         [string] $LogoffDeadline, # Logoff Deadline in yyyyMMddHHmm
 
         [Parameter(Mandatory = $false)]
-        [string] $LimitSecondsToForceLogOffUser = 0,
-
-        [Parameter(Mandatory = $false)]
-        [string] $DeleteVMDeadline = (Get-Date -Format yyyyMMddHHmm), # Removal Deadline in yyyyMMddHHmm
+        [string] $DeleteVMDeadline, # Removal Deadline in yyyyMMddHHmm
 
         [Parameter(mandatory = $false)]
         [string] $LAWorkspaceName = ""
@@ -147,10 +141,30 @@ Function Update-WVDHostPool {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
     #region Helper Functions
-    function Get-LocalDateTime {
-        return (Get-Date).ToUniversalTime().AddHours($TimeDiffHrsMin[0]).AddMinutes($TimeDiffHrsMin[1])
-    }
+ 
+    function Convert-UTCtoLocalTime {
+        <#
+    .SYNOPSIS
+    Convert from UTC to Local time
+    #>
+        param(
+            [Parameter(Mandatory)]
+            [string] $UtcOffset
+        )
 
+        $UniversalTime = (Get-Date).ToUniversalTime()
+        $UtcOffsetMinutes = 0
+        if ($UtcOffset -match ":") {
+            $UtcOffsetHours = $UtcOffset.Split(":")[0]
+            $UtcOffsetMinutes = $UtcOffset.Split(":")[1]
+        }
+        else {
+            $UtcOffsetHours = $UtcOffset
+        }
+        #Azure is using UTC time, justify it to the local time
+        $ConvertedTime = $UniversalTime.AddHours($UtcOffsetHours).AddMinutes($UtcOffsetMinutes)
+        return $ConvertedTime
+    }
     function Write-Log {
         [CmdletBinding()]
         param (
@@ -164,7 +178,7 @@ Function Update-WVDHostPool {
             [switch]$Warn
         )
 
-        [string]$MessageTimeStamp = (Get-LocalDateTime).ToString('yyyy-MM-dd HH:mm:ss')
+        [string]$MessageTimeStamp = (Convert-UTCtoLocalTime -UtcOffset $UtcOffset).ToString('yyyy-MM-dd HH:mm:ss')
         $Message = "[$($MyInvocation.ScriptLineNumber)] $Message"
         [string]$WriteMessage = "$MessageTimeStamp $Message"
 
@@ -208,30 +222,6 @@ Function Update-WVDHostPool {
         catch {
             Write-Warning "$MessageTimeStamp Some error occurred while logging to log analytics workspace: $($PSItem | Format-List -Force | Out-String)"
         }
-    }
-
-    function Convert-UTCtoLocalTime {
-        <#
-    .SYNOPSIS
-    Convert from UTC to Local time
-    #>
-        param(
-            [Parameter(Mandatory)]
-            [string] $UtcOffset
-        )
-
-        $UniversalTime = (Get-Date).ToUniversalTime()
-        $UtcOffsetMinutes = 0
-        if ($UtcOffset -match ":") {
-            $UtcOffsetHours = $UtcOffset.Split(":")[0]
-            $UtcOffsetMinutes = $UtcOffset.Split(":")[1]
-        }
-        else {
-            $UtcOffsetHours = $UtcOffset
-        }
-        #Azure is using UTC time, justify it to the local time
-        $ConvertedTime = $UniversalTime.AddHours($UtcOffsetHours).AddMinutes($UtcOffsetMinutes)
-        return $ConvertedTime
     }
 
     function Remove-ResourcesWithDeleteTag {
@@ -481,7 +471,7 @@ Function Update-WVDHostPool {
         .EXAMPLE
         Add-ResourceTag -resourceId '/subscriptions/62826c76-d304-46d8-a0f6-718dbdcc536c/resourceGroups/myRG' -name 'test' -value 'withTagValue'
 
-        Add the tag 'test = withTagValue' to resource group 'myRG'
+d        Add the tag 'test = withTagValue' to resource group 'myRG'
         #>
         [CmdletBinding()]
         param (
@@ -495,16 +485,9 @@ Function Update-WVDHostPool {
             [string] $value
         )
 
-        $existingTags = Get-AzTag -ResourceId $resourceId
+        $mergedTags = @{"$name"="$value";}
+        $null = Update-AzTag -ResourceId $resourceId -Tag $mergedTags -Operation Merge
 
-        if ($existingTags.Properties.TagsProperty.Keys -contains $name) {
-            $existingTags.Properties.TagsProperty.$name = $value
-        }
-        else {
-            $existingTags.Properties.TagsProperty.Add($name, $value)
-        }
-        
-        $null = New-AzTag -ResourceId $ResourceId -Tag $existingTags.Properties.TagsProperty
     }
 
     function Set-ResourceGroupLifecycleTag {
@@ -643,8 +626,7 @@ Function Update-WVDHostPool {
 
     # Converting date time from UTC to Local
     $CurrentDateTime = Convert-UTCtoLocalTime -UtcOffset $UtcOffset
-    [string[]]$TimeDiffHrsMin = "$($UtcOffset):0".Split(':')
-
+   
     ## Log Analytics
     ## -------------
     if (-not [String]::IsNullOrEmpty($LAWorkspaceName)) {
@@ -664,7 +646,7 @@ Function Update-WVDHostPool {
     # Calculate Image Version from Parameters
     if ($PSCmdlet.ParameterSetName -eq 'MarketplaceImage') {
         if ($MarketplaceImageVersion -eq 'latest') {
-            Write-Log "Using Azure Marketplace Image"
+            Write-Log "Script ran with Marketplace Image parameters. Now getting latest image version."
             $getImageInputObject = @{
                 Location      = $MarketplaceImageLocation
                 PublisherName = $MarketplaceImagePublisher 
@@ -683,31 +665,32 @@ Function Update-WVDHostPool {
             }
         }
         else {
-            Write-Log "Using the specified image version '$MarketplaceImageVersion' as 'TargetImageVersion'."
+            Write-Log "Script ran with Marketplace Image parameters and specified image version. 'TargetImageVersion' = '$MarketplaceImageVersion'."
             [Version]$TargetImageVersion = $MarketplaceImageVersion
         }
     }
     elseif ($PSCmdlet.ParameterSetName -eq 'SIGImage') {
-        Write-Log "Using Shared Image Gallery Image"
+        Write-Log "Script ran with Shared Image Gallery Image and specified latest version."
         If ($SIGImageVersion -eq 'latest') {
             $getImageInputObject = @{
                 GalleryName = $SIGName
                 ResourceGroupName = $SIGResourceGroup
                 GalleryImageDefinitionName = $SIGImageDefinitionName
-        }
-        Try {
-            # Get all versions of the Shared Image Gallery Definition that are not excluded from Latest. The Version is stored as the Name property.
-            $AvailableVersions = Get-AzGalleryImageVersion @getImageInputObject | Where-Object {$_.PublishingProfile.ExcludeFromLatest -ne $true} | Select-Object Name
-            $LatestVersion = (($AvailableVersions.Name -as [Version[]]) | Measure-Object -Maximum).Maximum
-            Write-Log "The latest available '$SIGImageDefinitionName' in the '$SIGName' is '$latestversion'. Using this version as 'TargetImageVersion'."
-            [Version]$TargetImageVersion = $latestVersion
-        }
-        Catch {
-            throw "Check Shared Image Gallery image parameter values. Could not retrieve Image versions."
-            Exit
+            }
+            Try {
+                # Get all versions of the Shared Image Gallery Definition that are not excluded from Latest. The Version is stored as the Name property.
+                $AvailableVersions = Get-AzGalleryImageVersion @getImageInputObject | Where-Object {$_.PublishingProfile.ExcludeFromLatest -ne $true} | Select-Object Name
+                $LatestVersion = (($AvailableVersions.Name -as [Version[]]) | Measure-Object -Maximum).Maximum
+                Write-Log "The latest available '$SIGImageDefinitionName' in the '$SIGName' is '$latestversion'. Using this version as 'TargetImageVersion'."
+                [Version]$TargetImageVersion = $latestVersion
+            }
+            Catch {
+                throw "Check Shared Image Gallery image parameter values. Could not retrieve Image versions."
+                Exit
+            }
         }
         else {
-            Write-Log "Using the specified image version '$SIGImageVersion' as 'TargetImageVersion'."
+            Write-Log "Script Ran with Shared Image Gallery parameters and specific image version. 'TargetImageVersion' = '$SIGImageVersion'."
             [Version]$TargetImageVersion = $SIGImageVersion
         }
     }
@@ -727,49 +710,54 @@ Function Update-WVDHostPool {
     }
 
     ## Handle delete VM DeadlineTime
-    $DeleteVMDeadlineDataTime = [System.DateTime]::ParseExact($DeleteVMDeadline, 'yyyyMMddHHmm', $null)
-    ## Set Force Logoff if at or after deadline
-    if ($CurrentDateTime -ge $DeleteVMDeadlineDataTime) {
-        $DeleteVMDeadlinePassed = $true
+    If ($DeleteVMDeadline) {
+        $DeleteVMDeadlineDataTime = [System.DateTime]::ParseExact($DeleteVMDeadline, 'yyyyMMddHHmm', $null)
+        if ($CurrentDateTime -ge $DeleteVMDeadlineDataTime) {
+            $DeleteVMDeadlinePassed = $true
+        }
+        else {
+            $DeleteVMDeadlinePassed = $false
+        }
     }
-    else {
+    Else {
         $DeleteVMDeadlinePassed = $false
     }
 
     # Validate and get HostPool info
     $HostPool = $null
     try {
-        Write-Log "Get Hostpool info: '$HostPoolName' in resource group: '$ResourceGroupName'."
+        Write-Log "Get Hostpool info: [$HostPoolName] in resource group: [$ResourceGroupName]."
         $HostPool = Get-AzWvdHostPool -Name $HostPoolName -ResourceGroupName $ResourceGroupName
         if (-not $HostPool) {
             throw $HostPool
         }
     }
     catch {
-        Write-Log "Hostpoolname '$HostpoolName' does not exist. Ensure that you have entered the correct values."
+        Write-Log "Hostpoolname [$HostpoolName] does not exist. Ensure that you have entered the correct values."
         exit
     }
 
-    Write-Log "Starting WVD Hostpool Update: Current Date Time is: $CurrentDateTime."
+    Write-Log "Starting WVD Hostpool Update."
 
     # Get list of session hosts in hostpool
     $SessionHosts = Get-AzWvdSessionHost -HostPoolName $HostpoolName -ResourceGroupName $ResourceGroupName -ErrorAction Stop | Sort-Object Name
+    $sessionHostCount = $SessionHosts.Count
     # Check if the hostpool has session hosts
     if (-not $SessionHosts) {
-        Write-Log "There are no session hosts in the '$HostpoolName' Hostpool."
+        Write-Log "There are no session hosts in the [$HostpoolName] Hostpool."
         exit
     }
 
-    Write-Log "Processing hostpool '$($HostpoolName)' which contains '$($SessionHosts).Count' session hosts."
+    Write-Log "Processing hostpool [$HostpoolName] which contains $SessionHostCount session hosts."
 
     # Initialize variables for tracking running old session hosts.
     $RunningObsoleteSessionHosts = @()
     $vmsToRemove = [System.Collections.ArrayList]@()
 
     # Analyze the SessionHosts and Azure VM instances for applicability and to determine power state. Delete any turned off VMs if DeleteVM is specified.
-    Write-Log "####################"
-    Write-Log "##  ANALYZE HOSTS ##"
-    Write-Log "##----------------##"
+    Write-Log "############################"
+    Write-Log "##  ANALYZE SESSION HOSTS ##"
+    Write-Log "##------------------------##"
 
     Write-Log "Fetch VMs from resource group [$ResourceGroupName]"
     $HostPoolVMs = Get-AzVM -Status -ResourceGroupName $ResourceGroupName
@@ -801,17 +789,18 @@ Function Update-WVDHostPool {
                 Add-ResourceTag -resourceId $VMInstance.id -name "$MaintenanceTagName" -value $true # Used e.g. by the scaling script to identify machines to ignore
             }
             # Set Drain Mode if not already set
-            if ($SessionHost.AllowNewSession) {
+            if ($($SessionHost).AllowNewSession) {
+                WRite-Log "[$VMName] Setting Drain Mode."
                 Update-AzWvdSessionHost -Name $SessionHostName -HostPoolName $HostPoolName -ResourceGroupName $ResourceGroupName -AllowNewSession:$False | Out-Null
             }
             # Check if the Azure vm is running       
-            if ($VMInstance.PowerState -eq "VM running") {
+            if ($($VMInstance).PowerState -eq "VM running") {
                     Write-Log "[$VMName] VM is currently powered on."
-                    $null = $RunningObsoleteSessionHosts.Add($SessionHost)
+                    $null = $RunningObsoleteSessionHosts += $SessionHost
             }
             else {
                 Write-Log "[$VMName] VM is currently powered off."
-                if ($DeleteVMDeadlinePassed) {
+                if ($DeleteVMDeadlinePassed -eq $True) {
                     Write-Log "[$VMName] The 'DeleteVM Deadline' passed. The stopped VM is being scheduled to be deleted from resource group [$ResourceGroupName] and removed from hostpool [$HostPoolName]"
                     $null = $vmsToRemove.Add($VMInstance)
                     Remove-AzWvdSessionHost -HostPoolName $HostPoolName -ResourceGroupName $ResourceGroupName -Name $SessionHostName
@@ -820,26 +809,26 @@ Function Update-WVDHostPool {
         }          
     }
 
-    Write-Log "#####################"
-    Write-Log "##  PROCESS HOSTS ##"
-    Write-Log "##----------------##"
+    Write-Log "############################"
+    Write-Log "##  PROCESS SESSION HOSTS ##"
+    Write-Log "##------------------------##"
 
     # Process powered on VMs to determine if there are user sessions. If no sessions, stop (or delete VM). If sessions, then send message to active sessions or forcefully logoff users if Deadline has passed.
     # Stop or Delete VM after all user sessions are removed.
     if (($RunningObsoleteSessionHosts).Count -gt 0) {
         $SessionHost = $null
-        Write-Log "Current number of running hosts that need to be stopped and/or deleted: $RunningObsoleteSessionHosts.Count"
+        Write-Log "Current number of running hosts that need to be stopped and/or deleted: $($RunningObsoleteSessionHosts.Count)"
         Write-Log "Now processing each host."
 
         foreach ($SessionHost in $RunningObsoleteSessionHosts) {
             Write-Log "--------------------------------------------------------------------" 
-            $SessionHostName = $SessionHost.Name.Split("/")[1]
-            $VMName = $SessionHostName.split('.')[0]
+            $SessionHostName = $($SessionHost).Name.Split("/")[1]
+            $VMName = $($SessionHostName).split('.')[0]
             $VMInstance = $HostPoolVMs | Where-Object { $_.Name -eq $VMName }
 
             Write-Log "[$VMName] Processing session host [$SessionHostName]"
 
-            if ($SessionHostName.ToLower().Contains($VMInstance.Name.ToLower())) {
+            if ($($SessionHostName).ToLower().Contains($($VMInstance).Name.ToLower())) {
                 $UserSessions = Get-AzWvdUserSession -HostPoolName $HostPoolName -ResourceGroupName $ResourceGroupName -SessionHostName $SessionHostName
                 If ((-not $UserSessions) -or ($($UserSessions).Count -eq 0)) {
                     # No user sessions on these Session Hosts
@@ -851,49 +840,24 @@ Function Update-WVDHostPool {
                     else {
                         # Shutdown the Azure VM
                         Write-Log "[$VMName] There are no more active user sessions on session host [$SessionHostName], but the delete VM deadline did not yes pass. Stopping the Azure VM."
-                        $VMInstance | Stop-AzVM -AsJob -Force
+                        Stop-SessionHost -VMName $VMName
                     }
                 }
                 Else {
                     # User Sessions exist on these Session Hosts
-                    If ($ShutDownVMDeadlinePassed) {
-                        $LogoffinSecs = [int]$LimitSecondstoForceLogoff
-                        $ActiveUserSessions = Get-AzWvdUserSession -HostPoolName $HostpoolName -ResourceGroupName $ResourceGroupName -SessionHostName $SessionHostName | Where-Object {$_.SessionState -eq 'Active'}
-                        if (($ActiveUserSessions).Count -gt 0 -and $LogoffinSecs -ne 0) {
-                            Write-Log "[$VMName] There are [$ActiveUserSessions.Count] active user sessions on session host [$SessionHostName]"                        
-                            Write-Log "[$VMName] Sending the last logoff warning message to users because deadline has passed."
-                            foreach ($Session in $ActiveUserSessions) {
-                                $SplitSessionID = $Session.Id.Split("/")
-                                $SessionID = $SplitSessionID[$SplitSessionID.Count - 1]
-                                try {
-                                    $logofftime = (Get-Date).AddSeconds($LogoffinSecs) 
-                                    Send-AzWvdUserSessionMessage -ResourceGroupName $ResourceGroupName -HostPoolName $HostPoolName -SessionHostName $SessionHostName -UserSessionId $SessionID -MessageTitle 'Warning' -MessageBody "Please save your work. You will be automatically logged off at $Logofftime. You can log back in immediately to continue your work."
-                                }
-                                Catch {
-                                    Write-Log "Failed to send a logoff message to user: '$($Session.ActiveDirectoryUserName)', session ID: $SessionID $($PSItem |Format-List -Force | Out-String)"
-                                }
+                    Write-Log "[$VMName] There are $($UserSessions.Count) user sessions remaining on session host [$SessionHostName]"
+                    If ($ShutDownVMDeadlinePassed) {                        
+                        foreach ($Session in $UserSessions) {
+                            $SplitSessionID = $Session.Id.Split("/")
+                            $SessionID = $SplitSessionID[$SplitSessionID.Count - 1]
+                            try {
+                                Remove-AzWvdUserSession -ResourceGroupName $ResourceGroupName -HostPoolName $HostpoolName -SessionHostName $SessionHostName -Id $SessionId -Force
+                                Write-Log ("[$VMName] Forcefully logged off the user [{0}]" -f ($Session.ActiveDirectoryUserName))
                             }
-                            Start-Sleep $LogoffinSecs
-                            # Recheck user sessions after logoff timeout
-                            $UserSessions = Get-AzWvdUserSession -HostPoolName $HostpoolName -ResourceGroupName $ResourceGroupName -SessionHostName $SessionHostName     
-                        }          
-        
-                        if (($UserSessions).Count -gt 0) {
-                            Write-Log "[$VMName] There are [$UserSessions.Count] user sessions remaining on session host [$SessionHostName]"
-                            foreach ($Session in $UserSessions) {
-                                $SplitSessionID = $Session.Id.Split("/")
-                                $SessionID = $SplitSessionID[$SplitSessionID.Count - 1]
-                                try {
-                                    Remove-AzWvdUserSession -ResourceGroupName $ResourceGroupName -HostPoolName $HostpoolName -SessionHostName $SessionHostName -Id $SessionId -Force
-                                    Write-Log ("[$VMName] Forcefully logged off the user [{0}]" -f ($Session.ActiveDirectoryUserName))
-                                }
-                                catch {
-                                    Write-Log "[$VMName] Failed to log off user with error: $($_.exception.message)"
-                                }
+                            catch {
+                                Write-Log "[$VMName] Failed to log off user with error: $($_.exception.message)"
                             }
                         }
-
-                        # Check for User Sessions every 5 seconds and wait for them to equal 0 or 60 sec timeout to expire.
                         $timer = 0
                         do {
                             $RemainingSessions = (Get-AzWvdUserSession -HostPoolName $HostpoolName -ResourceGroupName $ResourceGroupName -SessionHostName $SessionHostName).Count
@@ -911,7 +875,7 @@ Function Update-WVDHostPool {
                             else {
                                 # Shutdown the Azure VM
                                 Write-Log "[$VMName] There are no more active user sessions on session host [$SessionHostName], but the delete VM deadline did not yet pass. Stopping the Azure VM."
-                                $VMInstance | Stop-AZVm -AsJob -Force
+                                Stop-SessionHost -VMName $VMName
                             }
                         }
                         else {
@@ -922,7 +886,7 @@ Function Update-WVDHostPool {
                         # SessionHost Shutdown Deadline has not passed
                         $ActiveUserSessions = Get-AzWvdUserSession -HostPoolName $HostpoolName -ResourceGroupName $ResourceGroupName -SessionHostName $SessionHostName | Where-Object {$_.SessionState -eq 'Active'}
                         if (($ActiveUserSessions).Count -gt 0) {
-                            Write-Log "[$VMName] There are [$ActiveUserSessions.Count] active user sessions on session host [$SessionHostName]"                        
+                            Write-Log "[$VMName] There are $($ActiveUserSessions.Count) active user sessions on session host [$SessionHostName]"                        
                             Write-Log "[$VMName] Sending the logoff message to users with deadline."
                             foreach ($Session in $ActiveUserSessions) {
                                 $SplitSessionID = $Session.Id.Split("/")
@@ -954,7 +918,7 @@ Function Update-WVDHostPool {
         Remove-VirtualMachineByLoop -VmsToRemove $vmsToRemove
     }
 
-    Write-Log "#########################"
+    Write-Log "########################"
     Write-Log "##  SET RG-LEVEL TAGS ##"
     Write-Log "##--------------------##"
 
@@ -966,5 +930,5 @@ Function Update-WVDHostPool {
     }
     Set-ResourceGroupLifecycleTag @rgLevelTaggingInput
 }
-Write-Host 'Starting Function'
-Update-WVDHostpool -ResourceGroupName 'RG-WVD-Hostpools' -HostPoolName 'Windows10MSFullDesktop' -UtcOffset '-4:00' -LogOffMessageTitle 'Warning' -LogOffMessageBody 'Please logoff' -TargetImageVersion '1.0.0' -LimitSecondsToForceLogOffUser 60 -MaintenanceTagName 'ExemptAutoScale' -LogoffDeadline '202009222200'
+
+Update-WVDHostPool -HostPoolName 'Windows10MSFullDesktop' -ResourceGroupName 'RG-WVD-Hostpools' -UtcOffset '-4:00' -CustomImageVersion '1.0.1' -LogOffMessageTitle 'Warning' -LogOffMessageBody 'Maintenance Time' -MaintenanceTagName 'ExemptfromScaling' -LogoffDeadline '202009280800'
