@@ -99,14 +99,12 @@ If (Test-Path "$Script:LogDir\$ScriptName.log") { Remove-Item "$Script:LogDir\$S
 If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -Recurse -Force }
 
 #Update URLs with new releases
-
 [uri]$OneDriveUrl = "https://go.microsoft.com/fwlink/p/?linkid=2121808"
 [uri]$VSRedistUrl = "https://aka.ms/vs/16/release/vc_redist.x64.exe"
 [uri]$WebSocketWebUrl = "https://docs.microsoft.com/en-us/azure/virtual-desktop/teams-on-wvd"
 [uri]$TeamsWebUrl = "https://docs.microsoft.com/en-us/microsoftteams/teams-for-vdi"
-[uri]$FSLogixUrl = "https://go.microsoft.com/fwlink/?linkid=2084562"
+[uri]$FSLogixUrl = "https://aka.ms/fslogix_download"
 [uri]$EdgeUpdatesAPIURL = "https://edgeupdates.microsoft.com/api/products?view=enterprise"
-
 #endregion
 
 #region functions
