@@ -762,12 +762,11 @@ Function Invoke-ImageCustomization {
 
         Write-Log -message "Starting installation of Microsoft Teams for all users." -Source 'Main'
         # Command line looks like: msiexec /i <msi_name> /l*v < install_logfile_name> ALLUSER=1
-        $Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1" 
+        $Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1 ALLUSERS=1" 
         Write-Log -message "Running `"msiexec.exe $Arguments`"" -Source 'Main'
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
         Write-Log -message "Completed $Script:Section Section." -Source 'Main'
-
     }
 
     #endregion
