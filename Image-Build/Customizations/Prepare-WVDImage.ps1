@@ -99,6 +99,7 @@ If (Test-Path "$Script:LogDir\$ScriptName.log") { Remove-Item "$Script:LogDir\$S
 If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -Recurse -Force }
 
 #Update URLs with new releases
+[uri]$O365TemplatesWebUrl = 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=49030'
 [uri]$OneDriveUrl = "https://go.microsoft.com/fwlink/p/?linkid=2121808"
 [uri]$VSRedistUrl = "https://aka.ms/vs/16/release/vc_redist.x64.exe"
 [uri]$WebSocketWebUrl = "https://docs.microsoft.com/en-us/azure/virtual-desktop/teams-on-wvd"
@@ -513,8 +514,7 @@ Function Invoke-CleanMgr {
         "Windows ESD installation files", "Windows Upgrade Log Files"
     
     ForEach ($Suffix in $RegKeySuffixes) { Set-RegistryValue -Key "$RegKeyParent$Suffix" -Name StateFlags0100 -Type DWord -Value 2 }
-    Start-Process -FilePath cleanmgr.exe -ArgumentList "/sagerun:100" -Wait -PassThru
-    
+    Start-Process -FilePath cleanmgr.exe -ArgumentList "/sagerun:100" -Wait -PassThru    
 }
 
 Function Invoke-ImageCustomization {
@@ -596,13 +596,20 @@ Function Invoke-ImageCustomization {
         $Installer = Start-Process -FilePath "$dirOffice\setup.exe" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru
  
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
-
+        Write-Log -message "Now downloading the latest Office 365 ADMX files."
         [string]$dirTemplates = Join-Path -Path $dirOffice -ChildPath 'Templates'
-        if (Test-Path $dirTemplates) {
-            Write-Log -message "Copying Group Policy ADMX/L files to PolicyDefinitions Folders."
-            Copy-Item -Path "$DirTemplates\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\"
-            Copy-Item -Path "$DirTemplates\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us"
+        If (-not (Test-Path $DirTemplates)) {
+            New-Item -Path $DirOffice -Name "Templates" -ItemType Directory -Force
         }
+        $O365TemplatesExe = "$DirTemplates\AdminTemplates_x64.exe"
+        $DownloadO365TemplatesHTML = Invoke-WebRequest -Uri $O365TemplatesWebUrl -UseBasicParsing
+        $O365Links = $DownloadO365TemplatesHTML.Links
+        $O365TemplatesUrl = ($O365Links | Where-Object {$_.href -like '*AdminTemplates_x64*.exe'}).href
+        Get-InternetFile -url $O365TemplatesUrl[0] -outputfile $O365TemplatesExe
+        Start-Process -FilePath $O365TemplatesExe -ArgumentList "/extract:$dirTemplates /quiet" -Wait -PassThru
+        Write-Log "Copying ADMX and ADML files to PolicyDefinitions folder."
+        Copy-Item -Path "$DirTemplates\admx\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -Force
+        Copy-Item -Path "$DirTemplates\adml\en-us\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us" -force -PassThru
 
         Write-Log -Message "Update User LGPO registry text file." -Source 'Main'
         # Turn off insider notifications
