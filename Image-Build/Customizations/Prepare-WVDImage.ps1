@@ -736,13 +736,13 @@ Function Invoke-ImageCustomization {
         Get-InternetFile -url $VSRedistUrl -outputfile $VSRedist
 
         $WebSocketMSI = "$PSScriptRoot\Websocket.msi"
-        $WebSocketHTML = Invoke-WebRequest -Uri $WebSocketWebUrl
+        $WebSocketHTML = Invoke-WebRequest -Uri $WebSocketWebUrl -UseBasicParsing
         $WebSocketLinks = $WebSocketHTML.Links
         $WebSocketUrl = ($WebSocketLinks | Where-Object {$_.outerHTML -like '*WebSocket Service*'}).href
         Get-InternetFile -url $WebSocketUrl -outputfile $WebSocketMSI
 
         $TeamsMSI = "$PSScriptRoot\Teams_Windows_x64.msi"
-        $HTML = Invoke-WebRequest -Uri $TeamsWebUrl
+        $HTML = Invoke-WebRequest -Uri $TeamsWebUrl -UseBasicParsing
         $Links = $HTML.Links
         $TeamsUrl = ($Links | Where-object {$_.OuterHTML -like '*Teams_windows_x64.msi*'}).href
         Get-InternetFile -url $TeamsUrl -outputfile $TeamsMSI
