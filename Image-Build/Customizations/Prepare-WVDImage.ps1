@@ -408,7 +408,7 @@ Function Get-InternetUrl {
     [CmdletBinding()]
     Param (
         [Parameter(Mandatory = $true, Position = 0)]
-        [uri]$url,
+        [uri]$Url,
         [Parameter(Mandatory = $true, Position = 1)]
         [string]$searchstring
     )
@@ -418,12 +418,16 @@ Function Get-InternetUrl {
         Write-Log -Message "Now extracting download URL from '$Url'." -Source ${CmdletName}
         $HTML = Invoke-WebRequest -Uri $Url -UseBasicParsing
         $Links = $HTML.Links
-        $aUrls = ($Links | Where-Object {$_.href -like "*$searchstring*"}).href
-        If ($null -eq $aUrls) {
-            $aUrls = ($Links | Where-Object {$_.OuterHTML -like "*$searchstring*"}).href
+        $aUrls = $Links | Where-Object {$_.href -like "*$searchstring*"}
+        If ($aUrls.count -eq 0) {
+            $aUrls = $Links | Where-Object {$_.OuterHTML -like "*$searchstring*"}
         }
-        Write-Log -Message "Download URL = '$aUrls[0]'" -Source ${CmdletName}
-        Return $aUrls[0]
+        If ($aUrls.Count -gt 0) {
+            $DownloadURL = $aUrls[0].href
+            Write-Log -Message "Download URL = '$DownloadUrl'" -Source ${CmdletName}
+            Return $DownloadUrl
+        }
+
     }
     Catch {
         Write-Log -Message "Error Downloading HTML and determining link for download." -Severity 3 -Source ${CmdletName}
