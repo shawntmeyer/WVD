@@ -99,6 +99,7 @@ If (Test-Path "$Script:LogDir\$ScriptName.log") { Remove-Item "$Script:LogDir\$S
 If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -Recurse -Force }
 
 #Update URLs with new releases
+[uri]$O365DepToolUrl = 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=49117'
 [uri]$O365TemplatesWebUrl = 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=49030'
 [uri]$OneDriveUrl = "https://go.microsoft.com/fwlink/p/?linkid=2121808"
 [uri]$VSRedistUrl = "https://aka.ms/vs/16/release/vc_redist.x64.exe"
@@ -585,7 +586,11 @@ Function Invoke-ImageCustomization {
         $Ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/install-office-on-wvd-master-image"
         $Script:Section = 'Office 365'
         $dirOffice = "$PSScriptRoot\Office365"
-
+        $O365DepToolExe = "$DirOffice\OfficeDeploymentTool.exe"
+        $InstallFile = "$DirOffice\setup.exe"
+        Write-Log -Message "Downloading Office Deployment Tool and extracting setup.exe"
+        Get-InternetFile -Url $O365DepToolUrl -outputfile $O365DepToolExe
+        Start-Process -FilePath $O365DepToolExe -ArgumentList "/Extract:$DirOffice /quiet" -PassThru -Wait
         #Process form input if Not Configured is set to prevent configuring local GPO
 
         Write-Log -Message "Installing and configuring Office 365 per `"$ref`"." -Source 'Main'
@@ -593,7 +598,7 @@ Function Invoke-ImageCustomization {
         If (-not(Test-Path "$env:WinDir\Logs\Software")) { New-Item -Path $env:WinDir\Logs -Name Software -ItemType Directory -Force }
         If (-not(Test-Path "$env:WinDir\Logs\Software\Office365")) { New-Item -Path $env:WinDir\Logs\Software -Name Office365 -ItemType Directory -Force }
 
-        $Installer = Start-Process -FilePath "$dirOffice\setup.exe" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru
+        $Installer = Start-Process -FilePath "$InstallFile" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru
  
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
         Write-Log -message "Now downloading the latest Office 365 ADMX files."
