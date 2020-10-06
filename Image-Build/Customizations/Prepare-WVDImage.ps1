@@ -773,12 +773,15 @@ Function Invoke-ImageCustomization {
 
         Write-Log -Message "Starting Teams Installation and Configuration in accordance with '$ref'." -Source 'Main'
         $VSRedist = "$PSScriptRoot\VSRedist.exe"
+        Write-Log -Message "Now downloading Visual Studio Redistributable Installer." -Source 'Main'
         Get-InternetFile -url $VSRedistUrl -outputfile $VSRedist
 
+        Write-Log -Message "Now downloading the latest Websocket Service Installer." -Source 'Main'
         $WebSocketMSI = "$PSScriptRoot\Websocket.msi"
         $WebSocketUrl = Get-InternetUrl -Url $WebSocketWebUrl -searchstring "WebSocket Service"
         Get-InternetFile -url $WebSocketUrl -outputfile $WebSocketMSI
 
+        Write-Log -Message "Now downloading the latest Teams 64-bit installer." -Source 'Main'
         $TeamsMSI = "$PSScriptRoot\Teams_Windows_x64.msi"
         $TeamsUrl = Get-InternetUrl -URL $TeamsWebUrl -searchstring "Teams_windows_x64.msi"
         Get-InternetFile -url $TeamsUrl -outputfile $TeamsMSI
@@ -788,6 +791,7 @@ Function Invoke-ImageCustomization {
         $Installer = Start-Process -FilePath $VSRedist -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
 
+        Write-Log -message "Installating the WebSocket Service." -Source 'Main'
         $Arguments = "/i '$WebsocketMSI' /l*v '$env:WinDir\Logs\Software\WebSocket_MSI.log' /quiet"
         Write-Log -message "Running 'msiexec.exe $Arguments'" -Source 'Main'
 
