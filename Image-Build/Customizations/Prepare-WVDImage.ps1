@@ -916,7 +916,7 @@ Function Invoke-ImageCustomization {
      
         $installer = "msiexec.exe"
         Write-Log -message "Starting installation of Microsoft Edge Enterprise." -Source 'Main'
-        $Arguments = "/i '$msifile' /q" 
+        $Arguments = "/i `"$msifile`" /q" 
         Write-Log -message "Running '$installer $Arguments'" -Source 'Main'
         $Install = Start-Process -FilePath "$installer" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "The exit code is $($Install.ExitCode)" -Source 'Main'
