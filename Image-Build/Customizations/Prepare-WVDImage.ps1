@@ -539,7 +539,7 @@ Function Invoke-LGPO {
     ForEach ($RegistryFile in $inputFiles) {
         $TxtFilePath = $RegistryFile.FullName
         Write-Log -Message "Now applying settings from '$txtFilePath' to Local Group Policy via LGPO.exe." -Source ${CmdletName}
-        Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t '$TxtFilePath'" -PassThru -Wait -NoNewWindow
+        Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -PassThru -Wait -NoNewWindow
     }
 }
 Function Invoke-CleanMgr {
@@ -637,7 +637,7 @@ Function Invoke-ImageCustomization {
         If (-not(Test-Path "$env:WinDir\Logs\Software")) { New-Item -Path $env:WinDir\Logs -Name Software -ItemType Directory -Force }
         If (-not(Test-Path "$env:WinDir\Logs\Software\Office365")) { New-Item -Path $env:WinDir\Logs\Software -Name Office365 -ItemType Directory -Force }
 
-        $Installer = Start-Process -FilePath "$O365Setup" -ArgumentList "/configure '$dirOffice\Configuration.xml'" -Wait -PassThru
+        $Installer = Start-Process -FilePath "$O365Setup" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru
  
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
         Write-Log -message "Now downloading the latest Office 365 ADMX files."
@@ -801,7 +801,7 @@ Function Invoke-ImageCustomization {
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
 
         Write-Log -message "Installating the WebSocket Service." -Source 'Main'
-        $Arguments = "/i '$WebsocketMSI' /l*v '$env:WinDir\Logs\Software\WebSocket_MSI.log' /quiet"
+        $Arguments = "/i `"$WebsocketMSI`" /l*v `"$env:WinDir\Logs\Software\WebSocket_MSI.log`" /quiet"
         Write-Log -message "Running 'msiexec.exe $Arguments'" -Source 'Main'
 
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
@@ -811,7 +811,7 @@ Function Invoke-ImageCustomization {
 
         Write-Log -message "Starting installation of Microsoft Teams for all users." -Source 'Main'
         # Command line looks like: msiexec /i <msi_name> /l*v < install_logfile_name> ALLUSER=1
-        $Arguments = "/i '$TeamsMSI' /l*v '$env:WinDir\Logs\Software\Teams_MSI.log' ALLUSER=1 ALLUSERS=1" 
+        $Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1 ALLUSERS=1" 
         Write-Log -message "Running 'msiexec.exe $Arguments'" -Source 'Main'
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
@@ -1087,8 +1087,8 @@ Function Invoke-ImageCustomization {
 
     $Script:Section = 'Cleanup'
     Write-Log "Outputing Group Policy Results and Local GPO Backup to '$Script:LogDir\LGPO'" -Source 'Main'
-    Start-Process -FilePath gpresult.exe -ArgumentList "/h '$Script:LogDir\LGPO\LocalGroupPolicy.html'" -PassThru -Wait
-    Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/b '$Script:LogDir\LGPO' /n 'WVD Image Local Group Policy Settings'" -PassThru -Wait
+    Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -PassThru -Wait
+    Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -PassThru -Wait
     If ( $CleanupImage ) { Invoke-CleanMgr }
     Write-Log -message "$scriptFileName completed." -source 'Main'
     Remove-Item "$PSScriptRoot\*" -Recurse -Force -ErrorAction SilentlyContinue
@@ -1295,7 +1295,7 @@ If ($DisplayForm) {
     $InstallTeams.Font = 'Microsoft Sans Serif,14'
 
     $InstallEdge = New-Object system.Windows.Forms.CheckBox
-    $InstallEdge.text = "Install Microsoft Edge Chromium v80+"
+    $InstallEdge.text = "Install Microsoft Edge Enterprise"
     $InstallEdge.AutoSize = $false
     $InstallEdge.width = 400
     $InstallEdge.height = 30
