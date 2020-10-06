@@ -19,4 +19,5 @@
     <User Key="software\microsoft\office\16.0\word\options" Name="defaultformat" Value="" Type="REG_SZ" App="word16" Id="L_SaveWordfilesas" />
   </AppSettings>
   <Display Level="None" AcceptEULA="TRUE" />
+<Logging Level="Standard" Path="%WINDIR%\Logs\Software" />
 </Configuration>
