@@ -418,15 +418,15 @@ Function Get-InternetUrl {
         Write-Log -Message "Now extracting download URL from '$Url'." -Source ${CmdletName}
         $HTML = Invoke-WebRequest -Uri $Url -UseBasicParsing
         $Links = $HTML.Links
-        $aUrls = $Links | Where-Object {$_.href -like "*$searchstring*"}
+        $aUrls = ($Links | Where-Object {$_.href -like "*$searchstring*"}).href
         If ($aUrls.count -eq 0) {
-            $aUrls = $Links | Where-Object {$_.OuterHTML -like "*$searchstring*"}
+            $aUrls = ($Links | Where-Object {$_.OuterHTML -like "*$searchstring*"}).href
         }
         If ($aUrls.Count -eq 1) {
-            $DownloadURL = $aUrls.href
+            $DownloadURL = $aUrls
         }
         Elseif ($aUrls.Count -gt 1) {
-            $DownloadURL = ($aUrls[0]).href
+            $DownloadURL = $aUrls[0]
         }
 
         If ($DownloadURL) {
