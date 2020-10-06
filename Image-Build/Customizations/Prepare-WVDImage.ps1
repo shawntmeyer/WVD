@@ -404,6 +404,26 @@ Function Set-RegistryValue {
     }
 }
 
+Function Get-InternetUrl {
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory = $true, Position = 0)]
+        [uri]$url,
+        [Parameter(Mandatory = $true, Position = 1)]
+        [string]$searchstring
+    )
+    Try {
+        $HTML = Invoke-WebRequest -Uri $url -UseBasicParsing
+        $Links = $HTML.Links
+        $aUrls = ($Links | Where-Object {$_.href -like "*$searchstring*"}).href
+        Return $aUrls[0]
+    }
+    Catch {
+        Write-Log -Message "Error Downloading HTML and determining link for download." -Severity 3
+        Exit
+    }
+}
+
 Function Get-InternetFile {
     [CmdletBinding()]
     Param (
@@ -592,10 +612,11 @@ Function Invoke-ImageCustomization {
         $OfficeDeploymentToolExe = "$DirOffice\OfficeDeploymentTool.exe"
         $O365Setup = "$DirOffice\setup.exe"
         Write-Log -Message "Downloading Office Deployment Tool and extracting setup.exe"
-        $DownloadODTHTML = Invoke-WebRequest -Uri $O365DepToolWebUrl -UseBasicParsing
-        $ODTLinks = $DownloadODTHTML.Links
-        $ODTDownloadUrl = ($ODTLinks | Where-Object {$_.href -like '*OfficeDeploymentTool*.exe'}).href
-        Get-InternetFile -url $ODTDownloadUrl[0] -outputfile $OfficeDeploymentToolExe
+        $ODTDownloadUrl = Get-InternetUrl -url $O365DepToolWebUrl -searchstring "OfficeDeploymentTool"
+        #$DownloadODTHTML = Invoke-WebRequest -Uri $O365DepToolWebUrl -UseBasicParsing
+        #$ODTLinks = $DownloadODTHTML.Links
+        #$ODTDownloadUrl = ($ODTLinks | Where-Object {$_.href -like '*OfficeDeploymentTool*.exe'}).href
+        Get-InternetFile -url $ODTDownloadUrl -outputfile $OfficeDeploymentToolExe
         Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -PassThru -Wait
 
         Write-Log -Message "Installing and configuring Office 365 per `"$ref`"." -Source 'Main'
@@ -612,10 +633,11 @@ Function Invoke-ImageCustomization {
             New-Item -Path $DirOffice -Name "Templates" -ItemType Directory -Force
         }
         $O365TemplatesExe = "$DirTemplates\AdminTemplates_x64.exe"
-        $DownloadO365TemplatesHTML = Invoke-WebRequest -Uri $O365TemplatesWebUrl -UseBasicParsing
-        $O365Links = $DownloadO365TemplatesHTML.Links
-        $O365TemplatesUrl = ($O365Links | Where-Object {$_.href -like '*AdminTemplates_x64*.exe'}).href
-        Get-InternetFile -url $O365TemplatesUrl[0] -outputfile $O365TemplatesExe
+        $O365TemplatesUrl = Get-InternetUrl -Url $O365TemplatesWebUrl -searchstring "AdminTemplates_x64"
+        #$DownloadO365TemplatesHTML = Invoke-WebRequest -Uri $O365TemplatesWebUrl -UseBasicParsing
+        #$O365Links = $DownloadO365TemplatesHTML.Links
+        #$O365TemplatesUrl = ($O365Links | Where-Object {$_.href -like '*AdminTemplates_x64*.exe'}).href
+        Get-InternetFile -url $O365TemplatesUrl -outputfile $O365TemplatesExe
         Start-Process -FilePath $O365TemplatesExe -ArgumentList "/extract:$dirTemplates /quiet" -Wait -PassThru
         Write-Log "Copying ADMX and ADML files to PolicyDefinitions folder."
         Copy-Item -Path "$DirTemplates\admx\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -Force
@@ -753,15 +775,17 @@ Function Invoke-ImageCustomization {
         Get-InternetFile -url $VSRedistUrl -outputfile $VSRedist
 
         $WebSocketMSI = "$PSScriptRoot\Websocket.msi"
-        $WebSocketHTML = Invoke-WebRequest -Uri $WebSocketWebUrl -UseBasicParsing
-        $WebSocketLinks = $WebSocketHTML.Links
-        $WebSocketUrl = ($WebSocketLinks | Where-Object {$_.outerHTML -like '*WebSocket Service*'}).href
+        $WebSocketUrl = Get-InternetUrl -Url $WebSocketWebUrl -searchstring "WebSocket Service"
+        #$WebSocketHTML = Invoke-WebRequest -Uri $WebSocketWebUrl -UseBasicParsing
+        #$WebSocketLinks = $WebSocketHTML.Links
+        #$WebSocketUrl = ($WebSocketLinks | Where-Object {$_.outerHTML -like '*WebSocket Service*'}).href
         Get-InternetFile -url $WebSocketUrl -outputfile $WebSocketMSI
 
         $TeamsMSI = "$PSScriptRoot\Teams_Windows_x64.msi"
-        $HTML = Invoke-WebRequest -Uri $TeamsWebUrl -UseBasicParsing
-        $Links = $HTML.Links
-        $TeamsUrl = ($Links | Where-object {$_.OuterHTML -like '*Teams_windows_x64.msi*'}).href
+        $TeamsUrl = Get-InternetUrl -URL $TeamsWebUrl -searchstring "Teams_windows_x64.msi"
+        #$HTML = Invoke-WebRequest -Uri $TeamsWebUrl -UseBasicParsing
+        #$Links = $HTML.Links
+        #$TeamsUrl = ($Links | Where-object {$_.OuterHTML -like '*Teams_windows_x64.msi*'}).href
         Get-InternetFile -url $TeamsUrl -outputfile $TeamsMSI
  
         Write-Log -message "Installing the latest VS Redistributables" -Source 'Main'
