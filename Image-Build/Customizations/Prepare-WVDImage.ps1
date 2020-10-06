@@ -751,14 +751,15 @@ Function Invoke-ImageCustomization {
         Write-Log -message "Copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
 
         $InstallDir = "${env:ProgramFiles(x86)}\Microsoft OneDrive"
+        $OnedriveVersion = (Get-ItemProperty -Path "$installDir\onedrive.exe").VersionInfo.ProductVersion
 
-        If (Test-Path $installDir) {
-            $ADMX = (Get-ChildItem $InstallDir -include '*.admx' -recurse)
+        If (Test-Path $installDir\$onedriveversion) {
+            $ADMX = (Get-ChildItem "$InstallDir\$OneDriveVersion" -include '*.admx' -recurse)
             ForEach ($file in $ADMX) {
                 Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions" -Force
             }
 
-            $ADML = (get-childitem $InstallDir -include '*.adml' -recurse | Where-object { $_.Directory -like '*adm' })
+            $ADML = (get-childitem "$InstallDir\$OneDriveVersion" -include '*.adml' -recurse | Where-object { $_.Directory -like '*adm' })
             ForEach ($file in $ADML) {
                 Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
             }
