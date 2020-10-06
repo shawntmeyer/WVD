@@ -595,7 +595,7 @@ Function Invoke-ImageCustomization {
         $DownloadODTHTML = Invoke-WebRequest -Uri $O365DepToolWebUrl -UseBasicParsing
         $ODTLinks = $DownloadODTHTML.Links
         $ODTDownloadUrl = ($ODTLinks | Where-Object {$_.href -like '*OfficeDeploymentTool*.exe'}).href
-        Get-InternetFile -url $ODTDownloadUrl[0] -outputfile $OfficeDeploymentToolTExe
+        Get-InternetFile -url $ODTDownloadUrl[0] -outputfile $OfficeDeploymentToolExe
         Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -PassThru -Wait
 
         Write-Log -Message "Installing and configuring Office 365 per `"$ref`"." -Source 'Main'
