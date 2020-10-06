@@ -422,12 +422,17 @@ Function Get-InternetUrl {
         If ($aUrls.count -eq 0) {
             $aUrls = $Links | Where-Object {$_.OuterHTML -like "*$searchstring*"}
         }
-        If ($aUrls.Count -gt 0) {
-            $DownloadURL = $aUrls[0].href
-            Write-Log -Message "Download URL = '$DownloadUrl'" -Source ${CmdletName}
-            Return $DownloadUrl
+        If ($aUrls.Count -eq 1) {
+            $DownloadURL = $aUrls.href
+        }
+        Elseif ($aUrls.Count -gt 1) {
+            $DownloadURL = ($aUrls[0]).href
         }
 
+        If ($DownloadURL) {
+            Write-Log -Message "Download URL = '$DownloadUrl'" -Source ${CmdletName}
+            Return $DownloadUrl
+        }   
     }
     Catch {
         Write-Log -Message "Error Downloading HTML and determining link for download." -Severity 3 -Source ${CmdletName}
