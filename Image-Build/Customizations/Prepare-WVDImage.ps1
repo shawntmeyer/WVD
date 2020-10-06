@@ -420,14 +420,20 @@ Function Get-InternetFile {
  
     $wc = New-Object System.Net.WebClient
     Write-Log -Message "Now Downloading file from `"$url`" to `"$outputfile`"." -Source ${CmdletName}
-    $wc.DownloadFile($url, $outputfile)
+    Try {
+        $wc.DownloadFile($url, $outputfile)
     
-    $time = (Get-Date).Subtract($start_time).Seconds
-    
-    Write-Log -Message "Time taken: `"$time`" seconds." -Source ${CmdletName}
-    if (Test-Path -Path $outputfile) {
-        $totalSize = (Get-Item $outputfile).Length / 1MB
-        Write-Log -message "Download was successful. Final file size: `"$totalsize`" mb" -Source ${CmdletName}
+        $time = (Get-Date).Subtract($start_time).Seconds
+        
+        Write-Log -Message "Time taken: `"$time`" seconds." -Source ${CmdletName}
+        if (Test-Path -Path $outputfile) {
+            $totalSize = (Get-Item $outputfile).Length / 1MB
+            Write-Log -message "Download was successful. Final file size: `"$totalsize`" mb" -Source ${CmdletName}
+        }
+    }
+    Catch {
+        Write-Log -Message "Error downloading file. Please check url." -Severity 3
+        Exit
     }
 }
 Function Update-LocalGPOTextFile {
@@ -484,7 +490,6 @@ Function Update-LocalGPOTextFile {
     Add-Content -Path $Outfile -Value "$($ValueType):$RegistryData"
     Add-Content -Path $Outfile -Value ""
 }
-
 Function Invoke-LGPO {
     Param (
         [string]$InputDir = "$Script:LogDir\LGPO",
@@ -501,7 +506,6 @@ Function Invoke-LGPO {
         Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -PassThru -Wait -NoNewWindow
     }
 }
-
 Function Invoke-CleanMgr {
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     Write-Log -Message "Now Cleaning image using Disk Cleanup wizard." -Source ${CmdletName}
@@ -517,7 +521,6 @@ Function Invoke-CleanMgr {
     ForEach ($Suffix in $RegKeySuffixes) { Set-RegistryValue -Key "$RegKeyParent$Suffix" -Name StateFlags0100 -Type DWord -Value 2 }
     Start-Process -FilePath cleanmgr.exe -ArgumentList "/sagerun:100" -Wait -PassThru    
 }
-
 Function Invoke-ImageCustomization {
     Param
     (
