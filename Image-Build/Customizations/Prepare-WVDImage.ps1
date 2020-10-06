@@ -795,6 +795,9 @@ Function Invoke-ImageCustomization {
         $TeamsUrl = Get-InternetUrl -URL $TeamsWebUrl -searchstring "Teams_windows_x64.msi"
         Get-InternetFile -url $TeamsUrl -outputfile $TeamsMSI
  
+ 	#create Logs\Software folder if not present (in case office is not selected, folder needs to be created)
+        If (-not(Test-Path "$env:WinDir\Logs\Software")) { New-Item -Path $env:WinDir\Logs -Name Software -ItemType Directory -Force }
+	 
         Write-Log -message "Installing the latest VS Redistributables" -Source 'Main'
         $Arguments = "/install /quiet /norestart"
         $Installer = Start-Process -FilePath $VSRedist -ArgumentList $Arguments -Wait -PassThru
