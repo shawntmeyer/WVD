@@ -418,20 +418,20 @@ Function Get-InternetUrl {
         Write-Log -Message "Now extracting download URL from '$Url'." -Source ${CmdletName}
         $HTML = Invoke-WebRequest -Uri $Url -UseBasicParsing
         $Links = $HTML.Links
-        $aURLs = $null
-        $aUrls=@()
-        $aUrls = ($Links | Where-Object {$_.href -like "*$searchstring*"}).href
-        If ($aUrls.count -eq 0) {
-            $aUrls = ($Links | Where-Object {$_.OuterHTML -like "*$searchstring*"}).href
+        $ahref = $null
+        $ahref=@()
+        $ahref = ($Links | Where-Object {$_.href -like "*$searchstring*"}).href
+        If ($ahref.count -eq 0 -or $null -eq $ahref) {
+            $ahref = ($Links | Where-Object {$_.OuterHTML -like "*$searchstring*"}).href
         }
-        If ($aUrls.Count -eq 1) {
-            Write-Log -Message "Download URL = '$aUrls'" -Source ${CmdletName}
-            Return $aUrls
+        If ($ahref.Count -eq 1) {
+            Write-Log -Message "Download URL = '$ahref'" -Source ${CmdletName}
+            Return $ahref
 
         }
-        Elseif ($aUrls.Count -gt 1) {
-            Write-Log -Message "Download URL = '$aUrls[0]'" -Source ${CmdletName}
-            Return $aUrls[0]
+        Elseif ($ahref.Count -gt 1) {
+            Write-Log -Message "Download URL = '$($ahref[0])'" -Source ${CmdletName}
+            Return $ahref[0]
         }
     }
     Catch {
@@ -455,7 +455,7 @@ Function Get-InternetFile {
     $start_time = Get-Date
  
     $wc = New-Object System.Net.WebClient
-    Write-Log -Message "Now Downloading file from '$url' to '$outputfile'." -Source ${CmdletName}
+    Write-Log -Message "Downloading file at '$url' to '$outputfile'." -Source ${CmdletName}
     Try {
         $wc.DownloadFile($url, $outputfile)
     
@@ -472,6 +472,7 @@ Function Get-InternetFile {
         Exit
     }
 }
+
 Function Update-LocalGPOTextFile {
     Param (
         [Parameter(Mandatory = $true, Position = 0)]
@@ -526,6 +527,7 @@ Function Update-LocalGPOTextFile {
     Add-Content -Path $Outfile -Value "$($ValueType):$RegistryData"
     Add-Content -Path $Outfile -Value ""
 }
+
 Function Invoke-LGPO {
     Param (
         [string]$InputDir = "$Script:LogDir\LGPO",
@@ -542,6 +544,7 @@ Function Invoke-LGPO {
         Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -PassThru -Wait -NoNewWindow
     }
 }
+
 Function Invoke-CleanMgr {
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     Write-Log -Message "Now Cleaning image using Disk Cleanup wizard." -Source ${CmdletName}
@@ -557,6 +560,7 @@ Function Invoke-CleanMgr {
     ForEach ($Suffix in $RegKeySuffixes) { Set-RegistryValue -Key "$RegKeyParent$Suffix" -Name StateFlags0100 -Type DWord -Value 2 }
     Start-Process -FilePath cleanmgr.exe -ArgumentList "/sagerun:100" -Wait -PassThru    
 }
+
 Function Invoke-ImageCustomization {
     Param
     (
@@ -619,28 +623,32 @@ Function Invoke-ImageCustomization {
         [Parameter(Mandatory = $false)]
         [bool]$RemoveApps
     )
+
+    Write-Log -Message "Starting ImagePrep Build Script." -Source 'Main'
+    If (-not(Test-Path "$env:WinDir\Logs\Software")) {
+        New-Item -Path $env:WinDir\Logs -Name Software -ItemType Directory -Force
+    }
+
     #region Office365
 
     If ( $Office365Install ) {
         $Ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/install-office-on-wvd-master-image"
         $Script:Section = 'Office 365'
+
         $dirOffice = "$PSScriptRoot\Office365"
         $OfficeDeploymentToolExe = "$DirOffice\OfficeDeploymentTool.exe"
         $O365Setup = "$DirOffice\setup.exe"
+        Write-Log -Message "Starting script section: `"$Script:Section`"." -Source 'Main'
         Write-Log -Message "Downloading Office Deployment Tool and extracting setup.exe"
         $ODTDownloadUrl = Get-InternetUrl -url $O365DepToolWebUrl -searchstring "OfficeDeploymentTool"
         Get-InternetFile -url $ODTDownloadUrl -outputfile $OfficeDeploymentToolExe
+        Write-Log -Message "Extracting 'setup.exe' from Office Deployment Tool." -Source 'Main'
         Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -PassThru -Wait
-
-        Write-Log -Message "Installing and configuring Office 365 per '$ref'." -Source 'Main'
-
-        If (-not(Test-Path "$env:WinDir\Logs\Software")) { New-Item -Path $env:WinDir\Logs -Name Software -ItemType Directory -Force }
-        #If (-not(Test-Path "$env:WinDir\Logs\Software\Office365")) { New-Item -Path $env:WinDir\Logs\Software -Name Office365 -ItemType Directory -Force }
-
+        Write-Log -Message "Downloading, installing and configuring Office 365 per '$ref'." -Source 'Main'
         $Installer = Start-Process -FilePath "$O365Setup" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru
  
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
-        Write-Log -message "Now downloading the latest Office 365 ADMX files."
+        Write-Log -message "Downloading the latest Office 365 ADMX files." -Source 'Main'
         [string]$dirTemplates = Join-Path -Path $dirOffice -ChildPath 'Templates'
         If (-not (Test-Path $DirTemplates)) {
             New-Item -Path $DirOffice -Name "Templates" -ItemType Directory -Force
@@ -648,6 +656,7 @@ Function Invoke-ImageCustomization {
         $O365TemplatesExe = "$DirTemplates\AdminTemplates_x64.exe"
         $O365TemplatesUrl = Get-InternetUrl -Url $O365TemplatesWebUrl -searchstring "AdminTemplates_x64"
         Get-InternetFile -url $O365TemplatesUrl -outputfile $O365TemplatesExe
+        Write-Log -Message "Extracting the templates to '$DirTemplates'." -Source 'Main'
         Start-Process -FilePath $O365TemplatesExe -ArgumentList "/extract:$dirTemplates /quiet" -Wait -PassThru
         Write-Log "Copying ADMX and ADML files to PolicyDefinitions folder."
         Copy-Item -Path "$DirTemplates\admx\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -Force
@@ -659,6 +668,7 @@ Function Invoke-ImageCustomization {
 
         If (($EmailCacheTime -ne 'Not Configured') -or ($CalendarSync -ne 'Not Configured') -or ($CalendarSyncMonths -ne 'Not Configured')) {
             # Enable Outlook Cached Mode
+            Write-Log -Message "Configuring Outlook Cached Mode." -source 'Main'
             Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'Enable' -RegistryType DWord -RegistryData 1
         }
         
@@ -694,9 +704,9 @@ Function Invoke-ImageCustomization {
         Write-Log -Message "Update Computer LGPO registry text file." -Source 'Main'
         $RegistryKeyPath = 'SOFTWARE\Policies\Microsoft\Office\16.0\Common\OfficeUpdate'
         # Hide Office Update Notifications
-        Update-LocalGPOTextFile -scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue HideUpdateNotifications -RegistryType DWord -RegistryData 1
+        Update-LocalGPOTextFile -scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'HideUpdateNotifications' -RegistryType DWord -RegistryData 1
         # Hide and Disable Updates
-        Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue HideEnableDisableUpdates -RegistryType DWord -RegistryData 1
+        Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'HideEnableDisableUpdates' -RegistryType DWord -RegistryData 1
         If ($DisableUpdates) {
             # Disable Updates            
             Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 0
@@ -738,7 +748,7 @@ Function Invoke-ImageCustomization {
  
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
 
-        Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
+        Write-Log -message "Copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
 
         $InstallDir = "${env:ProgramFiles(x86)}\Microsoft OneDrive"
 
@@ -759,10 +769,10 @@ Function Invoke-ImageCustomization {
         Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'GPOSetUpdateRing' -RegistryType DWORD -RegistryData 5
         Write-Log -Message "Now Configuring OneDrive to automatically sign-in with logged on user credentials." -Source 'Main'
         Update-LocalGPOTextFile -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'SilentAccountConfig' -RegistryType DWord -RegistryData 1
-        Write-Log -Message "Now Enabling Files on Demand" -Source 'Main'
+        Write-Log -Message "Enabling Files on Demand" -Source 'Main'
         Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'FilesOnDemandEnabled' -RegistryType DWORD -RegistryData 1
         If ($AADTenantID -and $AADTenantID -ne '') {
-            Write-Log "Now applying OneDrive for Business Known Folder Move Silent Configuration Settings." -Source 'Main'
+            Write-Log "Applying OneDrive for Business Known Folder Move Silent Configuration Settings." -Source 'Main'
             Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue 'KFMSilentOptIn' -RegistryType String -RegistryData "$AADTenantID"
         }
         Invoke-LGPO -SearchTerm "$Script:Section"
@@ -782,10 +792,10 @@ Function Invoke-ImageCustomization {
 
         Write-Log -Message "Starting Teams Installation and Configuration in accordance with '$ref'." -Source 'Main'
         $VSRedist = "$PSScriptRoot\VSRedist.exe"
-        Write-Log -Message "Now downloading Visual Studio Redistributable Installer." -Source 'Main'
+        Write-Log -Message "Downloading Visual Studio Redistributable Installer." -Source 'Main'
         Get-InternetFile -url $VSRedistUrl -outputfile $VSRedist
 
-        Write-Log -Message "Now downloading the latest Websocket Service Installer." -Source 'Main'
+        Write-Log -Message "Downloading the latest Websocket Service Installer." -Source 'Main'
         $WebSocketMSI = "$PSScriptRoot\Websocket.msi"
         $WebSocketUrl = Get-InternetUrl -Url $WebSocketWebUrl -searchstring "WebSocket Service"
         Get-InternetFile -url $WebSocketUrl -outputfile $WebSocketMSI
@@ -797,20 +807,19 @@ Function Invoke-ImageCustomization {
  
         Write-Log -message "Installing the latest VS Redistributables" -Source 'Main'
         $Arguments = "/install /quiet /norestart"
+        Write-Log -message "Running `"$VSRedist $Arguments`"." -Source 'Main'
         $Installer = Start-Process -FilePath $VSRedist -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
 
         Write-Log -message "Installating the WebSocket Service." -Source 'Main'
         $Arguments = "/i `"$WebsocketMSI`" /l*v `"$env:WinDir\Logs\Software\WebSocket_MSI.log`" /quiet"
         Write-Log -message "Running 'msiexec.exe $Arguments'" -Source 'Main'
-
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
 
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\Teams" -Name IsWVDEnvironment -Value 1 -Type DWord
 
         Write-Log -message "Starting installation of Microsoft Teams for all users." -Source 'Main'
-        # Command line looks like: msiexec /i <msi_name> /l*v < install_logfile_name> ALLUSER=1
         $Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1 ALLUSERS=1" 
         Write-Log -message "Running 'msiexec.exe $Arguments'" -Source 'Main'
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
@@ -1062,8 +1071,12 @@ Function Invoke-ImageCustomization {
     
         # Turn on Firewall
         Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled True
-        If ((Get-NetConnectionProfile -InterfaceAlias Ethernet).NetworkCategory -eq 'Public') {
-            Set-NetConnectionProfile -InterfaceAlias Ethernet -NetworkCategory Private
+        $ConnectedAdapters = get-ciminstance -classname "win32_networkadapter" -filter "netconnectionstatus = 2"
+        ForEach ($Adapter in $ConnectedAdapters) {
+            $InterfaceAlias = $Adapter.NetConnectionID
+            If ((Get-NetConnectionProfile -InterfaceAlias $InterfaceAlias).NetworkCategory -eq 'Public') {
+                Set-NetConnectionProfile -InterfaceAlias $InterfaceAlias -NetworkCategory Private
+            }
         }
     
         # Allow WinRM
