@@ -1062,6 +1062,9 @@ Function Invoke-ImageCustomization {
     
         # Turn on Firewall
         Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled True
+        If ((Get-NetConnectionProfile -InterfaceAlias Ethernet).NetworkCategory -eq 'Public') {
+            Set-NetConnectionProfile -InterfaceAlias Ethernet -NetworkCategory Private
+        }
     
         # Allow WinRM
         Set-RegistryValue -Key 'HKLM:\System\CurrentControlSet\Services\WinRM' -Name Start -Value 2 -Type DWord
