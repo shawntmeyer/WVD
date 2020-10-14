@@ -66,29 +66,26 @@
                         "filters": [
                             "exclude:$_.Title -like '*Preview*'",
                             "include:$true"
-                                    ],
+                        ],
                         "updateLimit": 40
                     },
                     {
                         "type": "File",
                         "name": "downloadRepo",
                         "sourceUri": "https://github.com/shawntmeyer/WVD/archive/master.zip",
-                        "destination":"c:\\buildArtifacts\\WVD-master.zip"
+                        "destination": "c:\\buildArtifacts\\WVD-master.zip"
                     },
                     {
                         "type": "Powershell",
-                        "name": "Expand Repo into BuildArtifacts",
+                        "name": "ExpandRepo",
                         "inline": [
                             "Expand-Archive -Path c:\\buildartifacts\\WVD-master.zip -destinationpath c:\\buildartifacts -force"
                         ]
                     },
                     {
                         "type": "Powershell",
-                        "name": "Expand Repo into BuildArtifacts",
-                        "inline": [
-                            "cd c:\\buildartifacts\\WVD-master\\Image-Build\\Customizations",
-                            ".\\Prepare-WVDImage.ps1"
-                        ]
+                        "name": "Prepare-WVDImage",
+                        "scriptUri": "c:\\buildartifacts\\WVD-master\\Image-Build\\Customizations\\Prepare-WVDImage.ps1"
                     },                         
                     {
                         "type": "WindowsUpdate",
@@ -96,7 +93,7 @@
                         "filters": [
                             "exclude:$_.Title -like '*Preview*'",
                             "include:$true"
-                                    ],
+                        ],
                         "updateLimit": 40
                     },
                     {
@@ -104,7 +101,6 @@
                         "restartCheckCommand": "echo Azure-Image-Builder-Restarted-the-VM  > c:\\buildArtifacts\\azureImageBuilderRestart.txt",
                         "restartTimeout": "5m"
                     }
-
             ],
             "distribute": 
             [

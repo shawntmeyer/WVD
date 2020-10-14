@@ -7,7 +7,7 @@ $currentAzContext = Get-AzContext
 # destination image resource group
 $imageResourceGroup="aibwinsig01"
 # location (see possible locations in main docs)
-$location="Eastus"
+$location="EastUS"
 # your subscription, this will get your current subscription
 $subscriptionID=$currentAzContext.Subscription.Id
 # name of the image to be created
@@ -17,7 +17,7 @@ $imageTemplateName="Windows10MS"
 # distribution properties object name (runOutput), i.e. this gives you the properties of the managed image on completion
 $runOutputName="Win10MS"
 # create resource group
-If (!(Get-AzResourceGroup -Name $imageResourceGroup)) {
+If (!(Get-AzResourceGroup -Name $imageResourceGroup -ErrorAction SilentlyContinue)) {
     New-AzResourceGroup -Name $imageResourceGroup -Location $location
 }
 #endregion
@@ -30,7 +30,10 @@ $imageRoleDefName="Azure Image Builder Image Def"+$timeInt
 $IdentityName="aibIdentity"+$timeInt
 
 ## Add AZ PS module to support AzUserAssignedIdentity
-Install-Module -Name Az.ManagedServiceIdentity
+If (!(Get-Module -name Az.ManagedServiceIdentity -ErrorAction SilentlyContinue)) {
+    Install-Module -Name Az.ManagedServiceIdentity
+}
+
 
 # create identity
 New-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName
@@ -49,7 +52,7 @@ Invoke-WebRequest -Uri $aibRoleImageCreationUrl -OutFile $aibRoleImageCreationPa
 ((Get-Content -path $aibRoleImageCreationPath -Raw) -replace 'Azure Image Builder Service Image Creation Role', $imageRoleDefName) | Set-Content -Path $aibRoleImageCreationPath
 
 # create role definition
-New-AzRoleDefinition -InputFile  ./aibRoleImageCreation.json
+New-AzRoleDefinition -InputFile ./aibRoleImageCreation.json
 
 # grant role definition to image builder service principal
 New-AzRoleAssignment -ObjectId $IdentityNamePrincipalId -RoleDefinitionName $imageRoleDefName -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup"
@@ -58,21 +61,21 @@ New-AzRoleAssignment -ObjectId $IdentityNamePrincipalId -RoleDefinitionName $ima
 
 #region Step 3: Create the Shared Image Gallery and Image Definition
 
-$sigGalleryName= "WVD Shared Images"
+$sigGalleryName= "WVDSharedImages"
 $imageDefName ="Windows10MS"
-$imagePub = "Company Name"
-$ImageOffer = "Windows 10"
+$imagePub = "WindowsDeploymentGuy"
+$ImageOffer = "Windows-10"
 $ImageSku = "EVD"
 
 # additional replication region
 $replRegion2="westus"
 
 # create gallery
-If (!(Get-AzGallery -Name $sigGalleryName -ResourceGroupName $imageResourceGroup)) {
-    New-AzGallery -GalleryName $sigGalleryName -ResourceGroupName $imageResourceGroup  -Location $location
+If (!(Get-AzGallery -Name $sigGalleryName -ResourceGroupName $imageResourceGroup -ErrorAction SilentlyContinue)) {
+    New-AzGallery -GalleryName $sigGalleryName -ResourceGroupName $imageResourceGroup -Location $location
 }
 # create gallery definition
-If (!(Get-AzGalleryImageDefinition -GalleryName $sigGalleryName -ResourceGroupName $imageResourceGroup -Name $imageDefName)) {
+If (!(Get-AzGalleryImageDefinition -GalleryName $sigGalleryName -ResourceGroupName $imageResourceGroup -Name $imageDefName -ErrorAction SilentlyContinue)) {
     New-AzGalleryImageDefinition -GalleryName $sigGalleryName -ResourceGroupName $imageResourceGroup -Location $location -Name $imageDefName -OsState generalized -OsType Windows -Publisher $imagePub -Offer $imageOffer -Sku $imageSku
 }
 
@@ -80,7 +83,7 @@ If (!(Get-AzGalleryImageDefinition -GalleryName $sigGalleryName -ResourceGroupNa
 
 #Region Step 4: Configure the Image Template
 $templateUrl="https://raw.githubusercontent.com/shawntmeyer/WVD/master/Image-Build/AIB/ImageBuilder.json"
-$templateFilePath = "armTemplateWinSIG.json"
+$templateFilePath = "$env:Temp\armTemplateWinSIG.json"
 
 Invoke-WebRequest -Uri $templateUrl -OutFile $templateFilePath -UseBasicParsing
 
