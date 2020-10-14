@@ -59,9 +59,10 @@ If (!(Get-AzRoleDefinition -Name $imageRoleDefName -ErrorAction SilentlyContinue
     New-AzRoleDefinition -InputFile ./aibRoleImageCreation.json
 }
 
-# grant role definition to image builder service principal
-New-AzRoleAssignment -ObjectId $IdentityNamePrincipalId -RoleDefinitionName $imageRoleDefName -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup"
-
+If (!(Get-AzRoleAssignment -ObjectId $IdentityNamePrincipalId -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup" -RoleDefinitionName $imageRoleDefName -ErrorAction SilentlyContinue)) {
+    # grant role definition to image builder service principal
+    New-AzRoleAssignment -ObjectId $IdentityNamePrincipalId -RoleDefinitionName $imageRoleDefName -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup"
+}
 #endregion
 
 #region Step 3: Create the Shared Image Gallery and Image Definition

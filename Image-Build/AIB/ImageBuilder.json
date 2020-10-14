@@ -26,31 +26,25 @@
         "tags": {
             "imagebuilderTemplate": "AzureImageBuilderSIG",
             "userIdentity": "enabled"
-                },
-            "identity": {
-                "type": "UserAssigned",
-                        "userAssignedIdentities": {
-                        "<imgBuilderId>": {}
-                            
-                    }
-                    },
-        
+        },
+        "identity": {
+            "type": "UserAssigned",
+            "userAssignedIdentities": {
+                "<imgBuilderId>": {}
+            }
+        },
         "properties": {
             "buildTimeoutInMinutes" : 180,
-
-            "vmProfile": 
-                    {
-                    "vmSize": "Standard_D1_v2",
-                    "osDiskSizeGB": 127
-                    },
-        
+            "vmProfile": {
+                "vmSize": "Standard_D1_v2",
+                "osDiskSizeGB": 127
+            },        
             "source": {
                 "type": "PlatformImage",
-                    "publisher": "MicrosoftWindowsDesktop",
-                    "offer": "Windows-10",
-                    "sku": "20H2-EVD",
-                    "version": "latest"
-                
+                "publisher": "MicrosoftWindowsDesktop",
+                "offer": "Windows-10",
+                "sku": "20H2-EVD",
+                "version": "latest"                
             },
             "customize": [
                     {
