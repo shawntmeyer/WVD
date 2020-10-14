@@ -41,8 +41,8 @@ If (!(Get-Module -name Az.ManagedServiceIdentity -ErrorAction SilentlyContinue))
 $IdentityNameResourceId=$(Get-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName -ErrorAction SilentlyContinue).Id
 $IdentityNamePrincipalId=$(Get-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName -ErrorAction SilentlyContinue).PrincipalId
 
-If (($identityNamePrincipalID) -and (Get-AzRoleAssignment -ObjectId $IdentityNamePrincipalId -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup" -RoleDefinitionName $imageRoleDefName -ErrorAction SilentlyContinue)) {
-    Remove-AzRoleAssignment -ObjectId $IdentityNamePrincipalId -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup" -RoleDefinitionName $imageRoleDefName -Force
+If (Get-AzRoleAssignment -RoleDefinitionName $imageRoleDefName -ErrorAction SilentlyContinue) {
+    Get-AzRoleAssignment -RoleDefinitionName $ImageRoleDefName | Remove-AzRoleAssignment
 }
 If (Get-AzRoleDefinition -Name $imageRoleDefName -ErrorAction SilentlyContinue) {
     Remove-AzRoleDefinition -Name $imageRoleDefName -Force    
@@ -70,7 +70,7 @@ Invoke-WebRequest -Uri $aibRoleImageCreationUrl -OutFile $aibRoleImageCreationPa
 # create role definition
 New-AzRoleDefinition -InputFile "$env:Temp\aibRoleImageCreation.json"
 #endregion
-
+Start-Sleep 5
 # grant role definition to image builder service principal
 New-AzRoleAssignment -ObjectId $IdentityNamePrincipalId -RoleDefinitionName $imageRoleDefName -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup"
 
