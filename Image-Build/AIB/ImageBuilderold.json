@@ -55,6 +55,41 @@
                             "include:$true"
                         ],
                         "updateLimit": 40
+                    },
+                    {
+                        "type": "PowerShell",
+                        "name": "CreateBuildPath",
+                        "inline": "New-Item -path c:\\buildArtifacts -ItemType Directory -Force"
+                    },
+                    {
+                        "type": "File",
+                        "name": "downloadRepo",
+                        "sourceUri": "https://github.com/shawntmeyer/WVD/archive/master.zip",
+                        "destination": "c:\\buildArtifacts\\WVD-master.zip"
+                    },
+                    {
+                        "type": "PowerShell",
+                        "name": "ExpandRepo",
+                        "inline": "Expand-Archive -Path c:\\buildartifacts\\WVD-master.zip -destinationpath c:\\buildartifacts -force"
+                    },
+                    {
+                        "type": "PowerShell",
+                        "name": "Prepare-WVDImage",
+                        "scriptUri": "c:\\buildartifacts\\WVD-master\\Image-Build\\Customizations\\Prepare-WVDImage.ps1"
+                    },                         
+                    {
+                        "type": "WindowsUpdate",
+                        "searchCriteria": "IsInstalled=0",
+                        "filters": [
+                            "exclude:$_.Title -like '*Preview*'",
+                            "include:$true"
+                        ],
+                        "updateLimit": 40
+                    },
+                    {
+                        "type": "WindowsRestart",
+                        "restartCheckCommand": "echo Azure-Image-Builder-Restarted-the-VM  > c:\\buildArtifacts\\azureImageBuilderRestart.txt",
+                        "restartTimeout": "5m"
                     }
             ],
             "distribute": 
