@@ -46,17 +46,7 @@
                 "sku": "20H2-EVD",
                 "version": "latest"                
             },
-            "customize": [
-                    {
-                        "type": "WindowsUpdate",
-                        "searchCriteria": "IsInstalled=0",
-                        "filters": [
-                            "exclude:$_.Title -like '*Preview*'",
-                            "include:$true"
-                        ],
-                        "updateLimit": 40
-                    }
-            ],
+            "customize": [],
             "distribute": 
             [
                 {   
