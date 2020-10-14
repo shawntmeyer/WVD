@@ -5,7 +5,7 @@ Import-Module Az.Accounts
 # Get Context
 $currentAzContext = Get-AzContext
 # destination image resource group
-$imageResourceGroup="aibwinsig01"
+$imageResourceGroup="RG-AzureImageBuilder"
 # location (see possible locations in main docs)
 $location="EastUS"
 # your subscription, this will get your current subscription
@@ -26,18 +26,24 @@ If (!(Get-AzResourceGroup -Name $imageResourceGroup -ErrorAction SilentlyContinu
 
 # setup role def names, these need to be unique
 $timeInt=$(get-date -UFormat "%s")
-$imageRoleDefName="Azure Image Builder Image Def"+$timeInt
-$IdentityName="aibIdentity"+$timeInt
+#$imageRoleDefName="Azure Image Builder Image Def"+$timeInt
+$imageRoleDefName="Azure Image Builder Custom Role"
+#$IdentityName="AIBUserIdentity"+$timeInt
+$IdentityName="AIBUserIdentity"
 
 ## Add AZ PS module to support AzUserAssignedIdentity
 If (!(Get-Module -name Az.ManagedServiceIdentity -ErrorAction SilentlyContinue)) {
     Install-Module -Name Az.ManagedServiceIdentity
 }
 
+If (!(Get-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName -ErrorAction SilentlyContinue)) {
+    # create identity
+    New-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName
+}
 
-# create identity
-New-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName
+If (!(Get-AzRoleAssignment -RoleDefinitionName $imageRoleDefName -ErrorAction SilentlyContinue)) {
 
+}
 $IdentityNameResourceId=$(Get-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName).Id
 $IdentityNamePrincipalId=$(Get-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName).PrincipalId
 
@@ -51,8 +57,10 @@ Invoke-WebRequest -Uri $aibRoleImageCreationUrl -OutFile $aibRoleImageCreationPa
 ((Get-Content -path $aibRoleImageCreationPath -Raw) -replace '<rgName>', $imageResourceGroup) | Set-Content -Path $aibRoleImageCreationPath
 ((Get-Content -path $aibRoleImageCreationPath -Raw) -replace 'Azure Image Builder Service Image Creation Role', $imageRoleDefName) | Set-Content -Path $aibRoleImageCreationPath
 
-# create role definition
-New-AzRoleDefinition -InputFile ./aibRoleImageCreation.json
+If (!(Get-AzRoleDefinition -Name $imageRoleDefName -ErrorAction SilentlyContinue)) {
+    # create role definition
+    New-AzRoleDefinition -InputFile ./aibRoleImageCreation.json
+}
 
 # grant role definition to image builder service principal
 New-AzRoleAssignment -ObjectId $IdentityNamePrincipalId -RoleDefinitionName $imageRoleDefName -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup"
