@@ -58,10 +58,17 @@
                     },
                     {
                         "type": "PowerShell",
-                        "name": "CreateBuildPath",
-                        "inline": [
-                            "New-Item -path c:\\buildArtifacts -ItemType Directory -Force"
-                        ]
+                        "name": "InvokeAIBImageCustomizationScript",
+                        "scriptUri": "https://raw.githubusercontent.com/shawntmeyer/WVD/master/Image-Build/AIB/Invoke-AIBImageCustomization.ps1"
+                    },                         
+                    {
+                        "type": "WindowsUpdate",
+                        "searchCriteria": "IsInstalled=0",
+                        "filters": [
+                            "exclude:$_.Title -like '*Preview*'",
+                            "include:$true"
+                        ],
+                        "updateLimit": 40
                     },
                     {
                         "type": "WindowsRestart",
