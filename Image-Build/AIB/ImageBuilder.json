@@ -16,7 +16,6 @@
     "variables": {
     },
 
-
     "resources": [
       {
         "name": "[parameters('imageTemplateName')]",
@@ -37,7 +36,7 @@
                     },
         
         "properties": {
-            "buildTimeoutInMinutes" : 100,
+            "buildTimeoutInMinutes" : 180,
 
             "vmProfile": 
                     {
@@ -47,40 +46,20 @@
         
             "source": {
                 "type": "PlatformImage",
-                    "publisher": "MicrosoftWindowsServer",
-                    "offer": "WindowsServer",
-                    "sku": "2019-Datacenter",
+                    "publisher": "MicrosoftWindowsDesktop",
+                    "offer": "Windows-10",
+                    "sku": "20H2-EVD",
                     "version": "latest"
                 
             },
             "customize": [
-
                     {
-                        "type": "PowerShell",
+                        "type": "Powershell",
                         "name": "CreateBuildPath",
-                        "scriptUri": "https://raw.githubusercontent.com/danielsollondon/azvmimagebuilder/master/testPsScript.ps1"
-                    },
-                    {
-                        "type": "WindowsRestart",
-                        "restartCheckCommand": "echo Azure-Image-Builder-Restarted-the-VM  > c:\\buildArtifacts\\azureImageBuilderRestart.txt",
-                        "restartTimeout": "5m"
-                    },
-                    {
-                        "type": "File",
-                        "name": "downloadBuildArtifacts",
-                        "sourceUri": "https://raw.githubusercontent.com/danielsollondon/azvmimagebuilder/master/quickquickstarts/exampleArtifacts/buildArtifacts/index.html",
-                        "destination":"c:\\buildArtifacts\\index.html"
-                    },
-        
-                    {
-                        "type": "PowerShell",
-                        "name": "settingUpMgmtAgtPath",
                         "inline": [
-                            "mkdir c:\\buildActions",
-                            "echo Azure-Image-Builder-Was-Here  > c:\\buildActions\\buildActionsOutput.txt"
+                            "mkdir c:\\buildArtifacts"
                         ]
                     },
-                        
                     {
                         "type": "WindowsUpdate",
                         "searchCriteria": "IsInstalled=0",
@@ -89,6 +68,41 @@
                             "include:$true"
                                     ],
                         "updateLimit": 40
+                    },
+                    {
+                        "type": "File",
+                        "name": "downloadRepo",
+                        "sourceUri": "https://github.com/shawntmeyer/WVD/archive/master.zip",
+                        "destination":"c:\\buildArtifacts\\WVD-master.zip"
+                    },
+                    {
+                        "type": "Powershell",
+                        "name": "Expand Repo into BuildArtifacts",
+                        "inline": [
+                            "Expand-Archive -Path c:\\buildartifacts\\WVD-master.zip -destinationpath c:\\buildartifacts -force"
+                        ]
+                    },
+                    {
+                        "type": "Powershell",
+                        "name": "Expand Repo into BuildArtifacts",
+                        "inline": [
+                            "cd c:\\buildartifacts\\WVD-master\\Image-Build\\Customizations",
+                            ".\\Prepare-WVDImage.ps1"
+                        ]
+                    },                         
+                    {
+                        "type": "WindowsUpdate",
+                        "searchCriteria": "IsInstalled=0",
+                        "filters": [
+                            "exclude:$_.Title -like '*Preview*'",
+                            "include:$true"
+                                    ],
+                        "updateLimit": 40
+                    },
+                    {
+                        "type": "WindowsRestart",
+                        "restartCheckCommand": "echo Azure-Image-Builder-Restarted-the-VM  > c:\\buildArtifacts\\azureImageBuilderRestart.txt",
+                        "restartTimeout": "5m"
                     }
 
             ],
@@ -100,7 +114,7 @@
                     "runOutputName": "<runOutputName>",
                     "artifactTags": {
                         "source": "azureVmImageBuilder",
-                        "baseosimg": "windows2019"
+                        "baseosimg": "windows10MS"
                     },
                     "replicationRegions": [
                       "<region1>",
@@ -109,8 +123,6 @@
                 }
             ]
             }
-        }
-
-    
+        }    
     ]
 }    
