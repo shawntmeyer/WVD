@@ -59,7 +59,9 @@
                     {
                         "type": "PowerShell",
                         "name": "CreateBuildPath",
-                        "inline": "New-Item -path c:\\buildArtifacts -ItemType Directory -Force"
+                        "inline": [
+                            "New-Item -path c:\\buildArtifacts -ItemType Directory -Force"
+                        ]
                     },
                     {
                         "type": "File",
@@ -70,7 +72,9 @@
                     {
                         "type": "PowerShell",
                         "name": "ExpandRepo",
-                        "inline": "Expand-Archive -Path c:\\buildartifacts\\WVD-master.zip -destinationpath c:\\buildartifacts -force"
+                        "inline": [
+                            "Expand-Archive -Path c:\\buildartifacts\\WVD-master.zip -destinationpath c:\\buildartifacts -force"
+                        ]
                     },
                     {
                         "type": "PowerShell",
