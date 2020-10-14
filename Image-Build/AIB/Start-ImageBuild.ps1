@@ -41,9 +41,6 @@ If (!(Get-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $I
     New-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName
 }
 
-If (!(Get-AzRoleAssignment -RoleDefinitionName $imageRoleDefName -ErrorAction SilentlyContinue)) {
-
-}
 $IdentityNameResourceId=$(Get-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName).Id
 $IdentityNamePrincipalId=$(Get-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName).PrincipalId
 
