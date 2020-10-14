@@ -48,15 +48,6 @@
                 },
                 "customize": [
                     {
-                        "type": "WindowsUpdate",
-                        "searchCriteria": "IsInstalled=0",
-                        "filters": [
-                            "exclude:$_.Title -like '*Preview*'",
-                            "include:$true"
-                        ],
-                        "updateLimit": 40
-                    },
-                    {
                         "type": "PowerShell",
                         "name": "InvokeAIBImageCustomizationScript",
                         "scriptUri": "https://raw.githubusercontent.com/shawntmeyer/WVD/master/Image-Build/AIB/Invoke-AIBImageCustomization.ps1"
@@ -69,11 +60,6 @@
                             "include:$true"
                         ],
                         "updateLimit": 40
-                    },
-                    {
-                        "type": "WindowsRestart",
-                        "restartCheckCommand": "echo Azure-Image-Builder-Restarted-the-VM  > c:\\buildArtifacts\\azureImageBuilderRestart.txt",
-                        "restartTimeout": "5m"
                     }
                 ],
                 "distribute": [
