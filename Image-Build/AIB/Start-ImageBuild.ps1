@@ -25,10 +25,8 @@ If (!(Get-AzResourceGroup -Name $imageResourceGroup -ErrorAction SilentlyContinu
 #region Step 2: Create User Assigned Identity
 
 # setup role def names, these need to be unique
-$timeInt=$(get-date -UFormat "%s")
-#$imageRoleDefName="Azure Image Builder Image Def"+$timeInt
+
 $imageRoleDefName="Azure Image Builder Custom Role"
-#$IdentityName="AIBUserIdentity"+$timeInt
 $IdentityName="AIBUserIdentity"
 
 ## Add AZ PS module to support AzUserAssignedIdentity
