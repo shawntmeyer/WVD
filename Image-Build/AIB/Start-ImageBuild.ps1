@@ -96,8 +96,6 @@ If (!(Get-AzGalleryImageDefinition -GalleryName $sigGalleryName -ResourceGroupNa
 
 #Region Step 4: Configure the Image Template
 $templateUrl="https://raw.githubusercontent.com/shawntmeyer/WVD/master/Image-Build/AIB/ImageBuilder.json"
-#$templateUrl="https://raw.githubusercontent.com/danielsollondon/azvmimagebuilder/master/quickquickstarts/1_Creating_a_Custom_Win_Shared_Image_Gallery_Image/armTemplateWinSIG.json"
-#$templateFilePath = "armTemplateWinSIG.json"
 $templateFilePath = "$env:Temp\armTemplateWinSIG.json"
 
 Invoke-WebRequest -Uri $templateUrl -OutFile $templateFilePath -UseBasicParsing
