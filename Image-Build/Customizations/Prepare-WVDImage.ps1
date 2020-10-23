@@ -730,13 +730,15 @@ Function Invoke-ImageCustomization {
 
         $output = "$PSScriptRoot\onedrivesetup.exe"
         Get-InternetFile -url $OneDriveURL -outputfile $output
+
+        $OneDriveUninstaller = "$env:WinDir\SysWow64\OneDriveSetup.exe"
+
+        If (Test-Path -Path $OneDriveUninstaller) {
+            Write-Log -Message "Uninstalling the OneDrive per-user installations." -Source 'Main'
+            $Uninstaller = Start-Process -FilePath $OneDriveUninstaller -ArgumentList "/uninstall" -wait -PassThru
+            Write-Log -Message "The exit code from per-user uninstallation is $($Uninstaller.ExitCode)" -Source 'Main'
+        }
  
-        Write-Log -Message "Uninstalling the OneDrive per-user installations." -Source 'Main'
-
-        $Uninstaller = Start-Process -FilePath $output -ArgumentList "/uninstall" -wait -PassThru
-
-        Write-Log -Message "The exit code from per-user uninstallation is $($Uninstaller.ExitCode)" -Source 'Main'
-
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\OneDrive" -Name 'AllUsersInstall' -Value 1 -Type DWord
 
         Write-Log -message "Starting installation of OneDrive for all users." -Source 'Main'
