@@ -13,6 +13,8 @@ Invoke-WebRequest -Uri $WVDOptimizeURL -OutFile $WVDOptimizeZIP -UseBasicParsing
 Expand-Archive -Path $WVDOptimizeZIP -DestinationPath $BuildDir -force
 $ScriptPath = "$BuildDir\Virtual-Desktop-Optimization-Tool-master"
 Set-Location -Path $ScriptPath
+$Script = "Win10_VirtualDesktop_Optimize.ps1"
+(Get-Content "$ScriptPath\$Script").replace('$Answer = [System.Windows.MessageBox]::Show("Reboot to make changes effective?", "Restart Computer", "YesNo", "Question")', '$Answer = "No"') | Set-Content "$ScriptPath\$Script"
 .\Win10_VirtualDesktop_Optimize.ps1 -WindowsVersion 2004 -Verbose
 Set-Location -Path c:\
 Remove-Item -Path $BuildDir -Recurse -Force -ErrorAction SilentlyContinue
