@@ -645,7 +645,7 @@ Function Invoke-ImageCustomization {
         Write-Log -Message "Extracting 'setup.exe' from Office Deployment Tool." -Source 'Main'
         Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -PassThru -Wait
         Write-Log -Message "Downloading, installing and configuring Office 365 per '$ref'." -Source 'Main'
-        $Installer = Start-Process -FilePath "$O365Setup" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru -NoNewWindow
+        $Installer = Start-Process -FilePath "$O365Setup" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru
  
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
         Write-Log -message "Downloading the latest Office 365 ADMX files." -Source 'Main'
