@@ -535,12 +535,13 @@ Function Invoke-LGPO {
     )
 
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
-    Write-Output "Gathering Registry text files for LGPO from $InputDir"
+    Write-Output "Gathering Registry text files for LGPO from $InputDir" -Source ${CmdletName}
     $InputFiles = Get-ChildItem -Path $InputDir -Filter "$SearchTerm*.txt"
     ForEach ($RegistryFile in $inputFiles) {
         $TxtFilePath = $RegistryFile.FullName
         Write-Log -Message "Now applying settings from '$txtFilePath' to Local Group Policy via LGPO.exe." -Source ${CmdletName}
-        $null = Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -Wait -NoNewWindow 
+        $lgpo = Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -Wait -NoNewWindow
+        Write-Log -Message "'lgpo.exe' exited with code [$($lgpo.ExitCode)]." -Source ${CmdletName}
     }
 }
 
@@ -645,7 +646,7 @@ Function Invoke-ImageCustomization {
         $null = Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -Wait
         Write-Log -Message "Downloading, installing and configuring Office 365 per '$ref'." -Source 'Main'
         $Installer = Start-Process -FilePath "$O365Setup" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru 
-        Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
+        Write-Log -message "Setup.exe exited with code [$($Installer.ExitCode)]" -Source 'Main'
         Write-Log -message "Downloading the latest Office 365 ADMX files." -Source 'Main'
         [string]$dirTemplates = Join-Path -Path $dirOffice -ChildPath 'Templates'
         If (-not (Test-Path $DirTemplates)) {
@@ -657,8 +658,8 @@ Function Invoke-ImageCustomization {
         Write-Log -Message "Extracting the templates to '$DirTemplates'." -Source 'Main'
         $null = Start-Process -FilePath $O365TemplatesExe -ArgumentList "/extract:$dirTemplates /quiet" -Wait -PassThru
         Write-Log "Copying ADMX and ADML files to PolicyDefinitions folder."
-        Copy-Item -Path "$DirTemplates\admx\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -Force
-        Copy-Item -Path "$DirTemplates\admx\en-us\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us" -force -PassThru
+        $null = Copy-Item -Path "$DirTemplates\admx\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -Force
+        $null = Copy-Item -Path "$DirTemplates\admx\en-us\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us" -force -PassThru
 
         Write-Log -Message "Update User LGPO registry text file." -Source 'Main'
         # Turn off insider notifications
@@ -740,7 +741,7 @@ Function Invoke-ImageCustomization {
         If (Test-Path -Path $OneDriveUninstaller) {
             Write-Log -Message "Uninstalling the OneDrive per-user installations." -Source 'Main'
             $Uninstaller = Start-Process -FilePath $OneDriveUninstaller -ArgumentList "/uninstall" -wait -PassThru
-            Write-Log -Message "The exit code from per-user uninstallation is $($Uninstaller.ExitCode)" -Source 'Main'
+            Write-Log -Message "OneDriveSetup.exe exited with code [$($Uninstaller.ExitCode)]." -Source 'Main'
         }
  
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\OneDrive" -Name 'AllUsersInstall' -Value 1 -Type DWord
@@ -752,7 +753,7 @@ Function Invoke-ImageCustomization {
  
         $Installer = Start-Process -FilePath $output -ArgumentList $Arguments -Wait -PassThru
  
-        Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
+        Write-Log -message "The OneDriveSetup.exe install exited with code [$($Installer.ExitCode)]" -Source 'Main'
 
         Write-Log -message "Copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
 
@@ -830,7 +831,7 @@ Function Invoke-ImageCustomization {
         $Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1 ALLUSERS=1" 
         Write-Log -message "Running 'msiexec.exe $Arguments'" -Source 'Main'
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
-        Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
+        Write-Log -message "'msiexec.exe' exited with code [$($Installer.ExitCode)]." -Source 'Main'
         Write-Log -message "Completed $Script:Section Section." -Source 'Main'
     }
 
@@ -852,10 +853,10 @@ Function Invoke-ImageCustomization {
         $admx = Get-ChildItem "$destpath" -Filter "*.admx" -Recurse
         $adml = Get-ChildItem "$destpath" -filter "*.adml" -Recurse
         ForEach ($file in $admx) {
-            Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions" -Force
+            $null = Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions" -Force
         }
         ForEach ($file in $adml) {
-            Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
+            $null = Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
         }
         $Installer = "$PSScriptRoot\fslogix\x64\release\fslogixappssetup.exe"
         If (Test-Path $Installer) {
@@ -867,7 +868,7 @@ Function Invoke-ImageCustomization {
 
         $Install = Start-Process -FilePath $Installer -ArgumentList "$Arguments" -Wait -PassThru
 
-        Write-Log -message "The fslogixappssetup.exe exit code is $($Install.ExitCode)" -Source 'Main'
+        Write-Log -message "The fslogixappssetup.exe exit code is [$($Install.ExitCode)]." -Source 'Main'
 
         Write-Log -Message "Now performing FSLogix Configuration if enabled." -Source 'Main'
         $RegistryKey = 'HKLM:\Software\FSLogix\Profiles'
@@ -920,10 +921,10 @@ Function Invoke-ImageCustomization {
         $admx = Get-ChildItem "$destpath" -Filter "*.admx" -Recurse
         $adml = Get-ChildItem "$destpath" -filter "*.adml" -Recurse
         ForEach ($file in $admx) {
-            Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions" -Force
+            $null = Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions" -Force
         }
         ForEach ($file in $adml) {
-            Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
+            $null = Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
         }
         If ($DisableUpdates) {
             Write-Log -Message "Now disabling Edge Automatic Updates" -Source 'Main'
@@ -935,7 +936,7 @@ Function Invoke-ImageCustomization {
         $Arguments = "/i `"$msifile`" /q" 
         Write-Log -message "Running '$installer $Arguments'" -Source 'Main'
         $Install = Start-Process -FilePath "$installer" -ArgumentList $Arguments -Wait -PassThru
-        Write-Log -message "The exit code is $($Install.ExitCode)" -Source 'Main'
+        Write-Log -message "'$installer' exit code is [$($Install.ExitCode)]." -Source 'Main'
         Write-Log -Message "Complete $Script:Section script section." -Source 'Main'
 
     }

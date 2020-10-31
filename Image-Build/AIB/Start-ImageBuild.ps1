@@ -82,7 +82,7 @@ $ImageOffer = "Windows-10"
 $ImageSku = "EVD"
 
 # additional replication region
-$replRegion2=""
+$replRegion2="WestUS"
 
 # create gallery
 If (!(Get-AzGallery -Name $sigGalleryName -ResourceGroupName $imageResourceGroup -ErrorAction SilentlyContinue)) {
@@ -124,7 +124,7 @@ If (Get-AZImageBuilderTemplate -ResourceGroupName $imageResourceGroup -Name $ima
 }
 New-AzResourceGroupDeployment -ResourceGroupName $imageResourceGroup -TemplateFile $templateFilePath -api-version "2019-05-01-preview" -imageTemplateName $imageTemplateName -svclocation $location
 #endregion
-
+start-sleep 5
 #Region Step 6: Invoke the Deployment
 Invoke-AzResourceAction -ResourceName $imageTemplateName -ResourceGroupName $imageResourceGroup -ResourceType Microsoft.VirtualMachineImages/imageTemplates -ApiVersion "2019-05-01-preview" -Action Run -Force
 #endregion
