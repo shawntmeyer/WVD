@@ -10,19 +10,23 @@ Set-Location -Path $ScriptPath
 .\Prepare-WVDImage.ps1 -RemoveApps $False
 Remove-Item -Path $BuildDir -Recurse -Force -ErrorAction SilentlyContinue
 
-# Create the default setup scripts directory if it doesn't exist. If setupcomplete.cmd is found in this directory by Windows Setup it is ran
-# after Windows Setup finishes but before the user interface is displayed. See https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/add-a-custom-script-to-windows-setup
-$SetupDir = "$env:SystemRoot\Setup\Scripts"
-If (!(Test-Path $SetupDir)) {
-    $null = New-Item -Name $SetupDir -ItemType Directory
+<##
+    OOBE supports running a custom script after setup completes named C:\Windows\Setup\Scripts\SetupComplete.cmd (see https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/add-a-custom-script-to-windows-setup).
+    However, Azure's provisioning process uses this script (overwriting if necessary) to bootstrap its own
+    OOBE process. Luckily, Azure's OOBE process leaves a hook for us at the end of its process by running the script
+    C:\Windows\OEM\SetupComplete2.cmd, if present.
+##>
+$OEMDir = "$env:SystemRoot\OEM"
+If (!(Test-Path $OEMDir)) {
+    $null = New-Item -Name $OEMDir -ItemType Directory
 }
 #Download Virtual Desktop Optimization Tool from the Virtual Desktop Team GitHub Repo
 $WVDOptimizeURL = 'https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool/archive/master.zip'
-$WVDOptimizeZIP = "$SetupDir\Windows_10_VDI_Optimize-master.zip"
+$WVDOptimizeZIP = "$OEMDir\Windows_10_VDI_Optimize-master.zip"
 Invoke-WebRequest -Uri $WVDOptimizeURL -OutFile $WVDOptimizeZIP -UseBasicParsing
-Expand-Archive -Path $WVDOptimizeZIP -DestinationPath $SetupDir -force
+Expand-Archive -Path $WVDOptimizeZIP -DestinationPath $OEMDir -force
 Remove-Item -Path $WVDOptimizeZIP -Force -ErrorAction SilentlyContinue
-$ScriptPath = "$SetupDir\Virtual-Desktop-Optimization-Tool-master"
+$ScriptPath = "$OEMDir\Virtual-Desktop-Optimization-Tool-master"
 # Update the script configuration to leave the windows calculator enabled.
 $AppxPackagesConfigFileFullName = "$scriptPath\$WindowsVersion\ConfigurationFiles\AppxPackages.json"
 
@@ -33,8 +37,5 @@ ForEach ($Element in $AppxPackagesObj) {
     }
 }
 $AppxPackagesObj | ConvertTo-Json -depth 32 | Set-Content $AppxPackagesConfigFileFullName
-# Add a new setupcomplete.cmd if it is needed else just add a new line to an existing one to call the Win10_VirtualDesktop_Optimization.ps1 script during deployment.
-If (!(Test-Path $SetupDir\setupcomplete.cmd)){
-    New-Item -Path $SetupDir\setupcomplete.cmd -ItemType File
-}
-Add-Content -Path $SetupDir\setupcomplete.cmd -Value "Powershell.exe -executionpolicy bypass -file `"$ScriptPath\Win10_VirtualDesktop_Optimize.ps1`" -WindowsVersion $WindowsVersion -Restart -Verbose"
+$CMDLine = "Powershell.exe -noprofile -noninteractive -executionpolicy bypass -file `"$ScriptPath\Win10_VirtualDesktop_Optimize.ps1`" -WindowsVersion $WindowsVersion -Restart -Verbose"
+$CMDLine | out-file -Encoding ascii -FilePath "$OEMDir\setupcomplete2.cmd"
