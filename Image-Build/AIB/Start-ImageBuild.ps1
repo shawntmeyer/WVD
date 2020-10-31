@@ -82,7 +82,7 @@ $ImageOffer = "Windows-10"
 $ImageSku = "EVD"
 
 # additional replication region
-$replRegion2="westus"
+$replRegion2=""
 
 # create gallery
 If (!(Get-AzGallery -Name $sigGalleryName -ResourceGroupName $imageResourceGroup -ErrorAction SilentlyContinue)) {

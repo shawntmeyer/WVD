@@ -540,7 +540,7 @@ Function Invoke-LGPO {
     ForEach ($RegistryFile in $inputFiles) {
         $TxtFilePath = $RegistryFile.FullName
         Write-Log -Message "Now applying settings from '$txtFilePath' to Local Group Policy via LGPO.exe." -Source ${CmdletName}
-        Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -Wait -NoNewWindow
+        $null = Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -Wait -NoNewWindow 
     }
 }
 
@@ -557,7 +557,7 @@ Function Invoke-CleanMgr {
         "Windows ESD installation files", "Windows Upgrade Log Files"
     
     ForEach ($Suffix in $RegKeySuffixes) { Set-RegistryValue -Key "$RegKeyParent$Suffix" -Name StateFlags0100 -Type DWord -Value 2 }
-    Start-Process -FilePath cleanmgr.exe -ArgumentList "/sagerun:100" -Wait -PassThru    
+    $null = Start-Process -FilePath cleanmgr.exe -ArgumentList "/sagerun:100" -Wait -PassThru    
 }
 
 Function Invoke-ImageCustomization {
@@ -642,20 +642,20 @@ Function Invoke-ImageCustomization {
         $ODTDownloadUrl = Get-InternetUrl -url $O365DepToolWebUrl -searchstring "OfficeDeploymentTool"
         Get-InternetFile -url $ODTDownloadUrl -outputfile $OfficeDeploymentToolExe
         Write-Log -Message "Extracting 'setup.exe' from Office Deployment Tool." -Source 'Main'
-        Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -Wait
+        $null = Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -Wait
         Write-Log -Message "Downloading, installing and configuring Office 365 per '$ref'." -Source 'Main'
         $Installer = Start-Process -FilePath "$O365Setup" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru 
         Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
         Write-Log -message "Downloading the latest Office 365 ADMX files." -Source 'Main'
         [string]$dirTemplates = Join-Path -Path $dirOffice -ChildPath 'Templates'
         If (-not (Test-Path $DirTemplates)) {
-            New-Item -Path $DirOffice -Name "Templates" -ItemType Directory -Force
+            $null = New-Item -Path $DirOffice -Name "Templates" -ItemType Directory -Force
         }
         $O365TemplatesExe = "$DirTemplates\AdminTemplates_x64.exe"
         $O365TemplatesUrl = Get-InternetUrl -Url $O365TemplatesWebUrl -searchstring "AdminTemplates_x64"
         Get-InternetFile -url $O365TemplatesUrl -outputfile $O365TemplatesExe
         Write-Log -Message "Extracting the templates to '$DirTemplates'." -Source 'Main'
-        Start-Process -FilePath $O365TemplatesExe -ArgumentList "/extract:$dirTemplates /quiet" -Wait -PassThru
+        $null = Start-Process -FilePath $O365TemplatesExe -ArgumentList "/extract:$dirTemplates /quiet" -Wait -PassThru
         Write-Log "Copying ADMX and ADML files to PolicyDefinitions folder."
         Copy-Item -Path "$DirTemplates\admx\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -Force
         Copy-Item -Path "$DirTemplates\admx\en-us\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us" -force -PassThru
@@ -762,12 +762,12 @@ Function Invoke-ImageCustomization {
         If (Test-Path $installDir\$onedriveversion) {
             $ADMX = (Get-ChildItem "$InstallDir\$OneDriveVersion" -include '*.admx' -recurse)
             ForEach ($file in $ADMX) {
-                Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions" -Force
+                $null = Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions" -Force
             }
 
             $ADML = (get-childitem "$InstallDir\$OneDriveVersion" -include '*.adml' -recurse | Where-object { $_.Directory -like '*adm' })
             ForEach ($file in $ADML) {
-                Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
+                $null = Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
             }
         }
 
@@ -1110,8 +1110,8 @@ Function Invoke-ImageCustomization {
 
     $Script:Section = 'Cleanup'
     Write-Log "Outputing Group Policy Results and Local GPO Backup to '$Script:LogDir\LGPO'" -Source 'Main'
-    Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -PassThru -Wait
-    Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -PassThru -Wait
+    $null = Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -Wait
+    $null = Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -Wait
     If ( $CleanupImage ) { Invoke-CleanMgr }
     Write-Log -message "$scriptFileName completed." -source 'Main'
     Remove-Item "$PSScriptRoot\*" -Recurse -Force -ErrorAction SilentlyContinue
