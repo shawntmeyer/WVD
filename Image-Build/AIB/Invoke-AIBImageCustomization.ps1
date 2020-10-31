@@ -8,6 +8,8 @@ Expand-Archive -Path $PrepareWVDImageZip -DestinationPath $BuildDir
 $ScriptPath = "$BuildDir\WVD-Master\Image-Build\Customizations"
 Set-Location -Path $ScriptPath
 .\Prepare-WVDImage.ps1 -RemoveApps $False
+Set-Location "$env:SystemDrive"
+Remove-Item -Path $BuildDir\* -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path $BuildDir -Recurse -Force -ErrorAction SilentlyContinue
 
 <##
@@ -30,7 +32,6 @@ Remove-Item -Path $WVDOptimizeZIP -Force -ErrorAction SilentlyContinue
 $ScriptPath = "$OEMDir\Virtual-Desktop-Optimization-Tool-master"
 # Update the optimization script's configuration to keep the windows calculator app.
 $AppxPackagesConfigFileFullName = "$scriptPath\$WindowsVersion\ConfigurationFiles\AppxPackages.json"
-
 $AppxPackagesObj = Get-Content "$AppxPackagesConfigFileFullName" -Raw | ConvertFrom-Json
 ForEach ($Element in $AppxPackagesObj) {
     If ($Element.AppxPackage -eq 'Microsoft.WindowsCalculator') {
@@ -38,8 +39,7 @@ ForEach ($Element in $AppxPackagesObj) {
     }
 }
 $AppxPackagesObj | ConvertTo-Json -depth 32 | Set-Content $AppxPackagesConfigFileFullName
-$CMDLine = "Powershell.exe -noprofile -noninteractive -executionpolicy bypass -file `"$ScriptPath\Win10_VirtualDesktop_Optimize.ps1`" -WindowsVersion $WindowsVersion -Verbose"
+$CMDLine = "Powershell.exe -noprofile -noninteractive -executionpolicy bypass -file `"$ScriptPath\Win10_VirtualDesktop_Optimize.ps1`" -WindowsVersion $WindowsVersion -Verbose > %windir%\oem\win10_virtualdesktop_optimize.log"
 $CMDLine | out-file -Encoding ascii -FilePath "$OEMDir\setupcomplete2.cmd"
-add-content -path "$OEMDir\SetupComplete2.cmd" -Value "ECHO End SetupComplete2.cmd and initiating restart >> %windir%\Panther\WaSetup.log"
-add-content -Path "$OEMDir\SetupComplete2.cmd" -Value "shutdown /r /t 0"
-
+# Create the following tag file to force a machine restart from c:\windows\oem\setupcomplete.cmd
+$null = New-Item -Name "$OEMDir\RestartMachine.tag" -ItemType File 

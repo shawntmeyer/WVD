@@ -541,7 +541,7 @@ Function Invoke-LGPO {
     ForEach ($RegistryFile in $inputFiles) {
         $TxtFilePath = $RegistryFile.FullName
         Write-Log -Message "Now applying settings from '$txtFilePath' to Local Group Policy via LGPO.exe." -Source ${CmdletName}
-        Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -PassThru -Wait -NoNewWindow
+        Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -Wait -NoNewWindow
     }
 }
 
@@ -626,7 +626,7 @@ Function Invoke-ImageCustomization {
 
     Write-Log -Message "Starting ImagePrep Build Script." -Source 'Main'
     If (-not(Test-Path "$env:WinDir\Logs\Software")) {
-        New-Item -Path $env:WinDir\Logs -Name Software -ItemType Directory -Force
+        $null = New-Item -Path $env:WinDir\Logs -Name Software -ItemType Directory -Force
     }
 
     #region Office365
