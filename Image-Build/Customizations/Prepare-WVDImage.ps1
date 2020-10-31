@@ -537,7 +537,6 @@ Function Invoke-LGPO {
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     Write-Output "Gathering Registry text files for LGPO from $InputDir"
     $InputFiles = Get-ChildItem -Path $InputDir -Filter "$SearchTerm*.txt"
-    Write-Output $InputFiles
     ForEach ($RegistryFile in $inputFiles) {
         $TxtFilePath = $RegistryFile.FullName
         Write-Log -Message "Now applying settings from '$txtFilePath' to Local Group Policy via LGPO.exe." -Source ${CmdletName}
@@ -684,13 +683,23 @@ Function Invoke-ImageCustomization {
         If ($EmailCacheTime -eq '60 months') { $SyncWindowSetting = 60 }
         If ($EmailCacheTime -eq 'All') { $SyncWindowSetting = 0; $SyncWindowSettingDays = 0 }
 
-        If ($SyncWindowSetting) { Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSetting' -RegistryType DWORD -RegistryData $SyncWindowSetting }
-        If ($SyncWindowSettingDays) { Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSettingDays' -RegistryType DWORD -RegistryData $SyncWindowSettingDays }
+        If ($SyncWindowSetting) {
+            Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSetting' -RegistryType DWORD -RegistryData $SyncWindowSetting
+        }
+        If ($SyncWindowSettingDays) {
+            Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'SyncWindowSettingDays' -RegistryType DWORD -RegistryData $SyncWindowSettingDays
+        }
 
         # Calendar Sync Settings: https://support.microsoft.com/en-us/help/2768656/outlook-performance-issues-when-there-are-too-many-items-or-folders-in
-        If ($CalendarSync -eq 'Inactive') { $CalendarSyncWindowSetting = 0; }
-        If ($CalendarSync -eq 'Primary Calendar Only') { $CalendarSyncWindowSetting = 1 }
-        If ($CalendarSync -eq 'All Calendar Folders') { $CalendarSyncWindowSetting = 2 }
+        If ($CalendarSync -eq 'Inactive') {
+            $CalendarSyncWindowSetting = 0 
+        }
+        If ($CalendarSync -eq 'Primary Calendar Only') {
+            $CalendarSyncWindowSetting = 1
+        }
+        If ($CalendarSync -eq 'All Calendar Folders') {
+            $CalendarSyncWindowSetting = 2
+        }
 
         If ($CaldendarSyncWindowSetting) {
             Reg LOAD HKLM\DefaultUser "$env:SystemDrive\Users\Default User\NtUser.dat"
@@ -710,13 +719,9 @@ Function Invoke-ImageCustomization {
             # Disable Updates            
             Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 0
         }
-        else {
-            # Enable Updates
-            Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'EnableAutomaticUpdates' -RegistryType DWord -RegistryData 1
-        }
+
         Invoke-LGPO -SearchTerm "$Script:Section"
         Write-Log -Message "Completed the $Script:Section Section" -Source 'Main'
-
     }
     #endregion Office 365
 
