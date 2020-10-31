@@ -21,6 +21,7 @@ $WVDOptimizeURL = 'https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-O
 $WVDOptimizeZIP = "$SetupDir\Windows_10_VDI_Optimize-master.zip"
 Invoke-WebRequest -Uri $WVDOptimizeURL -OutFile $WVDOptimizeZIP -UseBasicParsing
 Expand-Archive -Path $WVDOptimizeZIP -DestinationPath $SetupDir -force
+Remove-Item -Path $WVDOptimizeZIP -Force -ErrorAction SilentlyContinue
 $ScriptPath = "$SetupDir\Virtual-Desktop-Optimization-Tool-master"
 # Update the script configuration to leave the windows calculator enabled.
 $AppxPackagesConfigFileFullName = "$scriptPath\$WindowsVersion\ConfigurationFiles\AppxPackages.json"
