@@ -529,6 +529,7 @@ Function Update-LocalGPOTextFile {
 }
 
 Function Invoke-LGPO {
+    [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     Param (
         [string]$InputDir = "$Script:LogDir\LGPO",
         [string]$SearchTerm = "$Script:Section"
@@ -540,7 +541,7 @@ Function Invoke-LGPO {
     ForEach ($RegistryFile in $inputFiles) {
         $TxtFilePath = $RegistryFile.FullName
         Write-Log -Message "Now applying settings from '$txtFilePath' to Local Group Policy via LGPO.exe." -Source ${CmdletName}
-        $lgpo = Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -Wait -NoNewWindow
+        $lgpo = Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/t `"$TxtFilePath`"" -Wait -PassThru -NoNewWindow
         Write-Log -Message "'lgpo.exe' exited with code [$($lgpo.ExitCode)]." -Source ${CmdletName}
     }
 }
