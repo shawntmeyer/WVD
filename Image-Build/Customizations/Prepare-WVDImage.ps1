@@ -960,14 +960,14 @@ Function Invoke-ImageCustomization {
             $LayoutFile = "$PSScriptRoot\StartMenu\StartLayout-Office.xml"
             If (Test-Path $LayoutFile) {
                 Write-Log -Message "Importing new Start Menu Layout with Office Group."
-                Import-StartLayout -LayoutPath $LayoutFile -MountPath $env:SystemDrive
+                Import-StartLayout -LayoutPath "$LayoutFile" -MountPath "c:\"
             }
         }
         Else {
             $LayoutFile = "$PSScriptRoot\StartMenu\StartLayout-NoOffice.xml"
             If (Test-Path $LayoutFile) {
                 Write-Log -Message "Importing new Start Menu Layout."
-                Import-StartLayout -LayoutPath $LayoutFile -MountPath $env:SystemDrive
+                Import-StartLayout -LayoutPath "$LayoutFile" -MountPath "c:\"
             }
         }
     }  
