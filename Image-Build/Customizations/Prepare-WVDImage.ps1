@@ -655,7 +655,7 @@ Function Invoke-ImageCustomization {
         Get-InternetFile -url $O365TemplatesUrl -outputfile $O365TemplatesExe
         Write-Log -Message "Extracting the templates to '$DirTemplates'."
         $null = Start-Process -FilePath $O365TemplatesExe -ArgumentList "/extract:$dirTemplates /quiet" -Wait -PassThru
-        Write-Log "Copying ADMX and ADML files to PolicyDefinitions folder."
+        Write-Log -message "Copying ADMX and ADML files to PolicyDefinitions folder."
         $null = Copy-Item -Path "$DirTemplates\admx\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -Force
         $null = Copy-Item -Path "$DirTemplates\admx\en-us\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us" -force -PassThru
 
@@ -778,7 +778,7 @@ Function Invoke-ImageCustomization {
         Write-Log -Message "Enabling Files on Demand"
         Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'FilesOnDemandEnabled' -RegistryType DWORD -RegistryData 1
         If ($AADTenantID -and $AADTenantID -ne '') {
-            Write-Log "Applying OneDrive for Business Known Folder Move Silent Configuration Settings."
+            Write-Log -message "Applying OneDrive for Business Known Folder Move Silent Configuration Settings."
             Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue 'KFMSilentOptIn' -RegistryType String -RegistryData "$AADTenantID"
         }
         Invoke-LGPO -SearchTerm "$Script:Section"
@@ -839,8 +839,8 @@ Function Invoke-ImageCustomization {
 
     If ($FSLogixInstall) {
         $Script:Section = 'FSLogix Agent'
-        Write-Log "Starting FSLogix Agent Installation and Configuration."
-        Write-Log "Downloading FSLogix Agent from Microsoft."
+        Write-Log -message "Starting FSLogix Agent Installation and Configuration."
+        Write-Log -message "Downloading FSLogix Agent from Microsoft."
         $output = "$PSScriptRoot\fslogix.zip"
         Get-InternetFile -url $FSLogixUrl -outputfile $output
         Write-Log -message "Extracting FSLogix Agent from zip."
@@ -898,7 +898,7 @@ Function Invoke-ImageCustomization {
 
         $dirTemplates = "$PSScriptRoot\Edge\Templates"
 
-        Write-Log "Now downloading latest Edge installer and Administrative Templates."
+        Write-Log -message "Now downloading latest Edge installer and Administrative Templates."
 
         $EdgeUpdatesJSON = Invoke-WebRequest -Uri $EdgeUpdatesAPIURL -UseBasicParsing
         $content = $EdgeUpdatesJSON.content | ConvertFrom-Json
@@ -944,7 +944,7 @@ Function Invoke-ImageCustomization {
     #region Workplace Join
 
     $Script:Section = 'WorkPlace Join'
-    Write-Log "Now disabling Workplace Join to prevent issue with Office Activation."
+    Write-Log -message "Now disabling Workplace Join to prevent issue with Office Activation."
     # Block domain joined machines from inadvertently getting Azure AD registered by users.
     Set-RegistryValue -Key 'HKLM:\Software\Policies\Microsoft\Windows\WorkplaceJoin' -Name BlockAADWorkplaceJoin -Type DWord -Value 1
 
@@ -953,8 +953,23 @@ Function Invoke-ImageCustomization {
     #region RemoveApps
     If ($RemoveApps) {
         $Script:Section = 'Remove Apps'
-        Write-Log "Now Removing Built-in Windows Apps."
+        Write-Log -message "Now Removing Built-in Windows Apps."
         & "$PSScriptRoot\RemoveApps\Remove-Apps.ps1"
+        $Script:Section = 'Start Menu'
+        If ($Office365Install) {
+            $LayoutFile = "$PSScriptRoot\StartMenu\StartLayout-Office.xml"
+            If (Test-Path $LayoutFile) {
+                Write-Log -Message "Importing new Start Menu Layout with Office Group."
+                Import-StartLayout -LayoutPath $LayoutFile -MountPath $env:SystemDrive
+            }
+        }
+        Else {
+            $LayoutFile = "$PSScriptRoot\StartMenu\StartLayout-NoOffice.xml"
+            If (Test-Path $LayoutFile) {
+                Write-Log -Message "Importing new Start Menu Layout."
+                Import-StartLayout -LayoutPath $LayoutFile -MountPath $env:SystemDrive
+            }
+        }
     }  
     #endregion
 
@@ -964,16 +979,16 @@ Function Invoke-ImageCustomization {
 
     $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/set-up-customize-master-image"
 
-    Write-Log "Now starting to apply $Script:Section in accordance with '$ref'."
+    Write-Log -message "Now starting to apply $Script:Section in accordance with '$ref'."
 
     If ($DisableUpdates) {
-        Write-Log "Disabling Windows Updates via Group Policy setting"
+        Write-Log -message "Disabling Windows Updates via Group Policy setting"
         Update-LocalGPOTextFile -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -RegistryValue 'NoAutoUpdate' -RegistryType 'Dword' -RegistryData 1
     }
-    Write-Log "Enabling Time Zone Redirection from Client to Session Host."
+    Write-Log -message "Enabling Time Zone Redirection from Client to Session Host."
     Update-LocalGPOTextFile -scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -RegistryValue 'fEnableTimeZoneRedirection' -RegistryType 'DWord' -RegistryData 1
 
-    Write-Log "Disabling Storage Sense GPO"
+    Write-Log -message "Disabling Storage Sense GPO"
 
     Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows\StorageSense' -RegistryValue 'AllowStorageSenseGlobal' -RegistryType 'DWord' -RegistryData 0
 
@@ -1001,7 +1016,7 @@ Function Invoke-ImageCustomization {
     Set-RegistryValue -Key $RegistryKey -Name MaxYResolution -Type DWord -Value 2880
 
     Invoke-LGPO -SearchTerm "$Script:Section"
-    Write-Log "Completed $Script:Section script section."
+    Write-Log -message "Completed $Script:Section script section."
 
     #endregion
 
@@ -1102,13 +1117,13 @@ Function Invoke-ImageCustomization {
     
         Invoke-LGPO -SearchTerm "$Script:Section"
     
-        Write-Log "Completed $Script:Section script section."
+        Write-Log -message "Completed $Script:Section script section."
 
     }
     #endregion
 
     $Script:Section = 'Cleanup'
-    Write-Log "Outputing Group Policy Results and Local GPO Backup to '$Script:LogDir\LGPO'"
+    Write-Log -message "Outputing Group Policy Results and Local GPO Backup to '$Script:LogDir\LGPO'"
     $null = Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -Wait
     $null = Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -Wait
     If ( $CleanupImage ) { Invoke-CleanMgr }
