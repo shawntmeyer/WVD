@@ -1,6 +1,26 @@
 $WindowsVersion = "2004"
+$Office365Install = $true
 $BuildDir = "c:\BuildDir"
 $ScriptName = $MyInvocation.MyCommand.Name
+
+Function Enable-AppXPackageinJSON {
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        [String]
+        $AppxPackageName
+    )
+    $AppxPackagesConfigFileFullName = "$scriptPath\$WindowsVersion\ConfigurationFiles\AppxPackages.json"
+    $AppxPackagesObj = Get-Content "$AppxPackagesConfigFileFullName" -Raw | ConvertFrom-Json
+    ForEach ($Element in $AppxPackagesObj) {
+    If ($Element.AppxPackage -eq "$AppxPackageName") {
+        $Element.VDIState = 'Enabled'
+    }
+}
+$AppxPackagesObj | ConvertTo-Json -depth 32 | Set-Content $AppxPackagesConfigFileFullName
+}
+
+
 Write-Output "Running '$ScriptName'"
 Write-Output "Creating '$BuildDir'"
 $null = New-Item -Path "$BuildDir" -ItemType Directory -Force -ErrorAction SilentlyContinue
@@ -13,7 +33,7 @@ Expand-Archive -Path $PrepareWVDImageZip -DestinationPath $BuildDir
 $ScriptPath = "$BuildDir\WVD-Master\Image-Build\Customizations"
 Set-Location -Path $ScriptPath
 Write-Output "Running Prepare-WVDImage.ps1"
-.\Prepare-WVDImage.ps1 -RemoveApps $False
+.\Prepare-WVDImage.ps1 -RemoveApps $False -$Office365Install $Office365Install
 Write-Output "Finished 'Prepare-WVDImage.ps1'."
 # Download Virtual Desktop Optimization Tool from the Virtual Desktop Team GitHub Repo
 $WVDOptimizeURL = 'https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool/archive/master.zip'
@@ -26,22 +46,21 @@ Remove-Item -Path $WVDOptimizeZIP -Force -ErrorAction SilentlyContinue
 $ScriptPath = "$BuildDir\Virtual-Desktop-Optimization-Tool-master"
 # Update the optimization script's configuration to keep the windows calculator app.
 Write-Output "Staging the Virtual Desktop Optimization Tool at '$ScriptPath'."
-Write-Output "Changing AppPackages.json file to leave WindowsCalculator app."
-$AppxPackagesConfigFileFullName = "$scriptPath\$WindowsVersion\ConfigurationFiles\AppxPackages.json"
-$AppxPackagesObj = Get-Content "$AppxPackagesConfigFileFullName" -Raw | ConvertFrom-Json
-ForEach ($Element in $AppxPackagesObj) {
-    If ($Element.AppxPackage -eq 'Microsoft.WindowsCalculator') {
-        $Element.VDIState = 'Enabled'
-    }
+Write-Output "Changing AppPackages.json file to leave Calculator in image."
+Enable-AppXPackageinJSON -AppxPackageName 'Microsoft.WindowsCalculator'
+If ($Office365Install) {
+    Write-Output "Changing AppPackages.json file to leave Office OneNote and Office Hub in image."
+    Enable-AppXPackageinJSON -AppxPackageName 'Microsoft.Office.OneNote'
+    Enable-AppXPackageinJSON -AppxPackageName 'Microsoft.MicrosoftOfficeHub'
 }
-$AppxPackagesObj | ConvertTo-Json -depth 32 | Set-Content $AppxPackagesConfigFileFullName
 $WVDOptimizeScriptName = (Get-ChildItem $ScriptPath | Where-Object {$_.Name -like '*optimize*.ps1'}).Name
-Write-Output "Adding a -NoRestart parameter to the Set-NetAdapterAdvancedProperty line in '$WVDOptimizeScriptName' to prevent the network adapter restart from killing AIB."
+Write-Output "Adding the '-NoRestart' switch to the Set-NetAdapterAdvancedProperty line in '$WVDOptimizeScriptName' to prevent the network adapter restart from killing AIB."
 $WVDOptScriptFile = Join-Path -Path $ScriptPath -ChildPath $WVDOptimizeScriptName
 (Get-Content $WVDOptScriptFile) | ForEach-Object { if (($_ -like 'Set-NetAdapterAdvancedProperty*') -and ($_ -notlike '*-NoRestart*')) { $_ -replace "$_", "$_ -NoRestart" } else { $_ } } | Set-Content $WVDOptScriptFile
 Set-Location $ScriptPath
 Write-Output "Now calling '$WVDOptimizeScriptName'."
 .\$WVDOptimizeScriptName -WindowsVersion $WindowsVersion -Verbose
+Write-Output "Completed $WVDOptimizeScriptName."
 Write-Output 'Cleaning up from customization scripts.'
 Set-Location "$env:SystemDrive"
 Write-Output "Removing '$BuildDir'."
