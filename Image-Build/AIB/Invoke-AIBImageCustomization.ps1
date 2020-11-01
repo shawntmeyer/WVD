@@ -3,19 +3,30 @@ $Office365Install = $true
 $BuildDir = "c:\BuildDir"
 $ScriptName = $MyInvocation.MyCommand.Name
 
-Function Enable-AppXPackageinJSON {
+Function Update-ConfigurationJSON {
     [CmdletBinding()]
     param (
-        [Parameter(Mandatory=$false)]
-        [String]
-        $AppxPackageConfigFilePath = $AppxPackagesConfigFileFullName,
         [Parameter(Mandatory=$true)]
         [String]
-        $AppxPackageName
+        $File,
+        [Parameter(Mandatory=$false)]
+        [String]
+        $ElementName = 'Name',
+        [Parameter(Mandatory=$true)]
+        [String]
+        $ElementValue,
+        [Parameter(Mandatory=$true)]
+        [String]
+        $VDIState
     )
-
-    $AppxPackagesObj = Get-Content "$AppxPackageConfigFilePath" -Raw | ConvertFrom-Json
-    $AppXPackagesObj | ForEach-Object { If ($_.AppxPackage -eq "$AppXPackageName") {$_.VDIState = "Enabled"} } | ConvertTo-Json -depth 32 | Set-Content $AppxPackagesConfigFileFullName
+    Write-Warning "Checking for configuration file '$file'."
+    If (Test-Path $File) {
+        Write-Output "Configuration File found. Updating configuration of '$elementValue' to '$VDIState'."
+        (Get-Content "$File" -Raw | ConvertFrom-Json) | ForEach-Object { If ($_.$ElementName -eq "$ElementValue") {$_.VDIState = $VDIState} } | ConvertTo-Json -depth 32 | Set-Content $File
+    }
+    else {
+        Write-Warning "The configuration file not found."
+    }
 }
 
 Write-Output "Running '$ScriptName'"
@@ -43,20 +54,20 @@ Invoke-WebRequest -Uri $WVDOptimizeURL -OutFile $WVDOptimizeZIP -UseBasicParsing
 Expand-Archive -Path $WVDOptimizeZIP -DestinationPath $BuildDir -force
 Remove-Item -Path $WVDOptimizeZIP -Force -ErrorAction SilentlyContinue
 $ScriptPath = "$BuildDir\Virtual-Desktop-Optimization-Tool-master"
-# Update the optimization script's configuration to keep the windows calculator app.
 Write-Output "Staging the Virtual Desktop Optimization Tool at '$ScriptPath'."
-Write-Output "Changing AppPackages.json file to leave Calculator in image."
+Write-Output "Removing AppXPackages.json file to prevent appx removal. Already completed."
 $AppxPackagesConfigFileFullName = "$scriptPath\$WindowsVersion\ConfigurationFiles\AppxPackages.json"
-# Removing AppxPackages.json file to skip appx package removal. This was completed by Prepare-WVDImage.ps1.
 Remove-Item -Path $AppxPackagesConfigFileFullName -force
-<##
-Enable-AppXPackageinJSON -AppxPackageName 'Microsoft.WindowsCalculator'
-If ($Office365Install) {
-    Write-Output "Changing AppPackages.json file to leave Office OneNote and Office Hub in image."
-    Enable-AppXPackageinJSON -AppxPackageName 'Microsoft.Office.OneNote'
-    Enable-AppXPackageinJSON -AppxPackageName 'Microsoft.MicrosoftOfficeHub'
-}
-##>
+# Update Services Configuration
+Write-Output "Updating Services Configuration."
+$ServicesConfig = "$ScriptPath\$WindowsVersion\ConfigurationFiles\Services.json"
+Write-Output "Setting the 'Store Install Service' in file to 'Unchanged'."
+Update-ConfigurationJSON -ElementValue 'InstallService' -File $ServicesConfig -VDIState "UnChanged"
+Write-Output "Setting the 'System Maintenance Service' in file to 'Unchanged'."
+Update-ConfigurationJSON -ElementValue 'SysMain' -File $ServicesConfig -VDIState "UnChanged"
+Write-Output "Setting the 'Update Orchestrator Service' in file to 'Unchanged'."
+Update-ConfigurationJSON -ElementValue 'UsoSvc' -File $ServicesConfig -VDIState "UnChanged"
+
 $WVDOptimizeScriptName = (Get-ChildItem $ScriptPath | Where-Object {$_.Name -like '*optimize*.ps1'}).Name
 Write-Output "Adding the '-NoRestart' switch to the Set-NetAdapterAdvancedProperty line in '$WVDOptimizeScriptName' to prevent the network adapter restart from killing AIB."
 $WVDOptimizeScriptFile = Join-Path -Path $ScriptPath -ChildPath $WVDOptimizeScriptName
