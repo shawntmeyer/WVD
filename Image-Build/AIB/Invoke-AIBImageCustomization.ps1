@@ -39,7 +39,7 @@ $WVDOptimizeZIP = "$BuildDir\Windows_10_VDI_Optimize-master.zip"
 Write-Output "Downloading the Virtual Desktop Team's Virtual Desktop Optimization Tool from GitHub."
 Write-Output "Downloading '$WVDOptimizeURL' to '$WVDOptimizeZIP'."
 Invoke-WebRequest -Uri $WVDOptimizeURL -OutFile $WVDOptimizeZIP -UseBasicParsing
-Expand-Archive -Path $WVDOptimizeZIP -DestinationPath $OEMDir -force
+Expand-Archive -Path $WVDOptimizeZIP -DestinationPath $BuildDir -force
 Remove-Item -Path $WVDOptimizeZIP -Force -ErrorAction SilentlyContinue
 $ScriptPath = "$BuildDir\Virtual-Desktop-Optimization-Tool-master"
 # Update the optimization script's configuration to keep the windows calculator app.

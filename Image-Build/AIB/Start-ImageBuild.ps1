@@ -54,7 +54,7 @@ If ($Reset -or $FirstRun) {
     If (!($UserIdentity)) {
         # create New identity
         Write-Output "Creating a new user assigned identity."
-        New-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName
+        $UserIdentity = New-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $IdentityName
     }
     Else {
         Write-Output "Found User Assigned Identity"
@@ -83,11 +83,14 @@ If ($Reset -or $FirstRun) {
         Write-Output "Custom Azure Role Definition found."
     }
 
-    Start-Sleep 5
     Write-Output "Checking for Role Assignment for '$IdentityName' with custom role."
     If (!(Get-AzRoleAssignment -RoleDefinitionName $imageRoleDefName -objectID $IdentityNamePrincipalId -ErrorAction SilentlyContinue)) {
         # grant role definition to image builder service principal
         Write-Output 'Role Assignment not found. Creating a new one.'
+        do {
+            Write-Output "Waiting for custom role definition to be available for assignment."
+            Start-Sleep -seconds 5
+        } until (Get-AzRoleDefinition -Name $imageRoleDefName -ErrorAction SilentlyContinue)
         New-AzRoleAssignment -ObjectId $IdentityNamePrincipalId -RoleDefinitionName $imageRoleDefName -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup"
     }
     Else {

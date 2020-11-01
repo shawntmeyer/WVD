@@ -360,7 +360,7 @@ Function Set-RegistryValue {
         [string]$Name,
         [Parameter(Mandatory = $true)]
         $Value,
-        [Parameter(Mandatory = $true)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet('Binary', 'DWord', 'ExpandString', 'MultiString', 'None', 'QWord', 'String', 'Unknown')]
         [Microsoft.Win32.RegistryValueKind]$Type = 'String'
     )
@@ -377,7 +377,7 @@ Function Set-RegistryValue {
                 }
                 # Forward slash was found in Key. Use REG.exe ADD to create registry key
                 Else {
-                    [string]$CreateRegkeyResult = & reg.exe Add "$($Key.Substring($Key.IndexOf('::') + 2))"
+                    $null = & reg.exe Add "$($Key.Substring($Key.IndexOf('::') + 2))"
                     If ($global:LastExitCode -ne 0) {
                         Throw "Failed to create registry key [$Key]"
                     }
@@ -392,7 +392,6 @@ Function Set-RegistryValue {
     }
     ## Update registry value if it does exist
     Else {
-        [string]$RegistryValueWriteAction = 'update'
         If ($Name -eq '(Default)') {
             ## Set Default registry key value with the following workaround, because Set-ItemProperty contains a bug and cannot set Default registry key value
             $null = $(Get-Item -LiteralPath $key -ErrorAction 'Stop').OpenSubKey('', 'ReadWriteSubTree').SetValue($null, $value)
@@ -529,11 +528,11 @@ Function Update-LocalGPOTextFile {
 }
 
 Function Invoke-LGPO {
-    [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     Param (
         [string]$InputDir = "$Script:LogDir\LGPO",
         [string]$SearchTerm = "$Script:Section"
     )
+    [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
 
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
     Write-Output "Gathering Registry text files for LGPO from $InputDir" -Source ${CmdletName}
