@@ -22,7 +22,6 @@ $runOutputName="Win10MS"
 If (!(Get-AzResourceGroup -Name $imageResourceGroup -ErrorAction SilentlyContinue)) {
     Write-Output "Creating '$ImageResourceGroup' resource group."
     New-AzResourceGroup -Name $imageResourceGroup -Location $location
-    $FirstRun = $True
 }
 #endregion
 

@@ -533,9 +533,7 @@ Function Invoke-LGPO {
         [string]$SearchTerm = "$Script:Section"
     )
     [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
-
-    [string]${CmdletName} = $PSCmdlet.MyInvocation.MyCommand.Name
-    Write-Output "Gathering Registry text files for LGPO from $InputDir" -Source ${CmdletName}
+    Write-Log -message "Gathering Registry text files for LGPO from '$InputDir'" -Source ${CmdletName}
     $InputFiles = Get-ChildItem -Path $InputDir -Filter "$SearchTerm*.txt"
     ForEach ($RegistryFile in $inputFiles) {
         $TxtFilePath = $RegistryFile.FullName
