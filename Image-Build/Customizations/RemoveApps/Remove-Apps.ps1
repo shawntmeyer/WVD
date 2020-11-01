@@ -64,27 +64,27 @@ function Get-AppList {
     $configFile = "$PSScriptRoot\RemoveApps.xml"
     if (Test-Path -Path $configFile) {
       # Read the list
-      Write-Log "Reading list of apps from $configFile" -Source ${CmdletName}
-      $list = get-content $configfile | where { !$_.contains("#") }
+      Write-Log -message "Reading list of apps from '$configFile'" -Source ${CmdletName}
+      $list = get-content $configfile | Where-Object { !$_.contains("#") }
     }
     else {
       # No list? Build one with all apps.
-      Write-Log "Building list of provisioned apps" -Source ${CmdletName}
+      Write-Log -message "Building list of provisioned apps" -Source ${CmdletName}
       $list = @()
       if ($script:Offline) {
-        Get-AppxProvisionedPackage -Path $script:OfflinePath | % { $list += $_.DisplayName }
+        Get-AppxProvisionedPackage -Path $script:OfflinePath | ForEach-Object { $list += $_.DisplayName }
       }
       else {
-        Get-AppxProvisionedPackage -Online | % { $list += $_.DisplayName }
+        Get-AppxProvisionedPackage -Online | ForEach-Object { $list += $_.DisplayName }
       }
 
       # Write the list to the log path
       $configFile = "$logDir\RemoveApps.xml"
       $list | Set-Content $configFile
-      Write-Log "Wrote list of apps to $logDir\RemoveApps.xml, edit and place in the same folder as the script to use that list for future script executions" -Source ${CMDLetName}
+      Write-Log -message "Wrote list of apps to $logDir\RemoveApps.xml, edit and place in the same folder as the script to use that list for future script executions" -Source ${CMDLetName}
     }
 
-    Write-Log "Apps selected for removal: $list.Count" -Source $CmdletName
+    Write-Log -message "Apps selected for removal: $list.Count" -Source $CmdletName
   }
 
   process {
@@ -106,11 +106,11 @@ function Remove-App {
     # Determine offline or online
     
     if ($script:Offline) {
-      Write-Log "Getting Apps provisioned in offline image." -Source $CmdletName
+      Write-Log -message "Getting Apps provisioned in offline image." -Source $CmdletName
       $script:Provisioned = Get-AppxProvisionedPackage -Path $script:OfflinePath
     }
     else {
-      Write-Log "Getting Apps provisioned in online OS." -Source $CmdletName
+      Write-Log -message "Getting Apps provisioned in online OS." -Source $CmdletName
       $script:Provisioned = Get-AppxProvisionedPackage -Online
       $script:AppxPackages = Get-AppxPackage
     }
@@ -120,32 +120,31 @@ function Remove-App {
     $app = $_
 
     # Remove the provisioned package
-    Write-Log "Removing provisioned package $_" -Source $CmdletName
-    $current = $script:Provisioned | ? { $_.DisplayName -eq $app }
+    Write-Log -message "Removing provisioned package $_" -Source $CmdletName
+    $current = $script:Provisioned | Where-Object { $_.DisplayName -eq $app }
     if ($current) {
       if ($script:Offline) {
-        $a = Remove-AppxProvisionedPackage -Path $script:OfflinePath -PackageName $current.PackageName
+        $null = Remove-AppxProvisionedPackage -Path $script:OfflinePath -PackageName $current.PackageName
       }
       else {
-        $a = Remove-AppxProvisionedPackage -Online -PackageName $current.PackageName
+        $null = Remove-AppxProvisionedPackage -Online -PackageName $current.PackageName
       }
     }
     else {
-      Write-Log "Unable to find provisioned package $_" -Source $CmdletName -Severity 2
+      Write-Log -message "Unable to find provisioned package $_" -Source $CmdletName -Severity 2
     }
 
     # If online, remove installed apps too
     if (-not $script:Offline) {
-      Write-Log "Removing installed package $_" -Source $CmdletName
-      $current = $script:AppxPackages | ? { $_.Name -eq $app }
+      Write-Log -message "Removing installed package $_" -Source $CmdletName
+      $current = $script:AppxPackages | Where-Object { $_.Name -eq $app }
       if ($current) {
         $current | Remove-AppxPackage
       }
       else {
-        Write-Log "Unable to find installed app $_" -Source $CmdletName -Severity 2
+        Write-Log -message "Unable to find installed app $_" -Source $CmdletName -Severity 2
       }
     }
-
   }
   End {
   }
@@ -163,7 +162,7 @@ function Get-OnlineCapabilities {
 
   #Creating Blank array for holding the result
   $objResult = @()
-
+  Write-Log -Message "Getting list of capabilities." -source $CmdletName
   #Read current values
   $dismoutput = Dism /online /Get-Capabilities /limitaccess
 
@@ -204,28 +203,28 @@ function Get-CapabilityList {
     $configFile = "$PSScriptRoot\RemoveCapabilities.xml"
     if (Test-Path -Path $configFile) {
       # Read the list
-      Write-Log "Reading list of Capabilities from $configFile" -Source $CMdletname
-      $list = get-content $configfile | where { !$_.contains("#") }
+      Write-Log -message "Reading list of Capabilities from $configFile" -Source $CMdletname
+      $list = get-content $configfile | Where-Object { !$_.contains("#") }
     }
     else {
       # No list? Build one with all Capabilities.
-      Write-Log "Building list of Installed Capabilities" -Source $CMdletname
+      Write-Log -message "Building list of Installed Capabilities" -Source $CMdletname
       $list = @()
       if ($script:Offline) {
-        Get-WindowsCapability -Path $script:OfflinePath | % { If ($_.Name -like '*App*') { $list += $_.Name } }
+        Get-WindowsCapability -Path $script:OfflinePath | Where-Object { If ($_.Name -like '*App*') { $list += $_.Name } }
       }
       else {
-        Get-OnlineCapabilities | % { If ($_.Name -like '*App*') { $list += $_.Name } }
+        Get-OnlineCapabilities | ForEach-Object { If ($_.Name -like '*App*') { $list += $_.Name } }
       }
 
       # Write the list to the log path
       $logDir = Get-LogDir
       $configFile = "$logDir\RemoveCapabilities.xml"
       $list | Set-Content $configFile
-      write-Log "Wrote list of Apps in Windows Capabilities to $logDir\RemoveCapabilities.xml, edit and place in the same folder as the script to use that list for future script executions" -Source $CmdletName
+      Write-Log -message "Wrote list of Apps in Windows Capabilities to $logDir\RemoveCapabilities.xml, edit and place in the same folder as the script to use that list for future script executions" -Source $CmdletName
     }
 
-    write-Log "Capability Apps selected for removal: $list.Count" -Source $CmdletName
+    Write-Log -message "Capability Apps selected for removal: $list.Count" -Source $CmdletName
   }
 
   process {
@@ -261,14 +260,14 @@ function Remove-Capability {
     $WindowsCapability = $_
 
     # Remove the provisioned package
-    write-Log "Removing Windows Capability $_" -Source $CmdletName
-    $current = $script:Capability | ? { $_.Name -eq $WindowsCapability -and $_.State -eq 'Installed' }
+    Write-Log -message "Removing Windows Capability $_" -Source $CmdletName
+    $current = $script:Capability | Where-Object { $_.Name -eq $WindowsCapability -and $_.State -eq 'Installed' }
     if ($current) {
       if ($script:Offline) {
-        $a = Remove-WindowsCapability -Path $script:OfflinePath -Name $current.Name
+        $null = Remove-WindowsCapability -Path $script:OfflinePath -Name $current.Name
       }
       else {
-        $a = Remove-WindowsCapability -Online -Name $current.Name
+        $null = Remove-WindowsCapability -Online -Name $current.Name
       }
     }
   }
@@ -523,29 +522,27 @@ Function Write-Log {
 
 [string]$scriptPath = $MyInvocation.MyCommand.Definition
 [string]$scriptName = [IO.Path]::GetFileNameWithoutExtension($scriptPath)
-[string]$scriptFileName = Split-Path -Path $scriptPath -Leaf
-[string]$scriptRoot = Split-Path -Path $scriptPath -Parent
 $Script:LogDir = Get-LogDir
 $Script:LogName = "$ScriptName.log"
 
 if ($env:SYSTEMDRIVE -eq "X:") {
   $script:Offline = $true
-  Write-Log "Script running in WinPE. Now searching for Offline Windows Drive." -Source "Remove-Apps"
+  Write-Log -message "Script running in WinPE. Now searching for Offline Windows Drive." -Source "Remove-Apps"
 
   # Find Windows
-  $drives = get-volume | ? { -not [String]::IsNullOrWhiteSpace($_.DriveLetter) } | ? { $_.DriveType -eq 'Fixed' } | ? { $_.DriveLetter -ne 'X' }
-  $drives | ? { Test-Path "$($_.DriveLetter):\Windows\System32" } | % { $script:OfflinePath = "$($_.DriveLetter):\" }
-  Write-Log "Eligible offline drive found: $script:OfflinePath" -Source "Remove-Apps"
+  $drives = get-volume | Where-Object { -not [String]::IsNullOrWhiteSpace($_.DriveLetter) } | ForEach-Object { $_.DriveType -eq 'Fixed' } | Where-Object { $_.DriveLetter -ne 'X' }
+  $drives | Where-Object { Test-Path "$($_.DriveLetter):\Windows\System32" } | ForEach-Object { $script:OfflinePath = "$($_.DriveLetter):\" }
+  Write-Log -message "Eligible offline drive found: $script:OfflinePath" -Source "Remove-Apps"
   $dismout = dism /image:$script:offlinepath /get-currentedition
-  $version = ($dismout | % { If ($_ -Like 'Image Version:*') { $_ } }).Split(" ")[2]
+  $version = ($dismout | ForEach-Object { If ($_ -Like 'Image Version:*') { $_ } }).Split(" ")[2]
   [int]$Build = $version.Split(".")[2] -as [int]
-  Write-Log "Offline Image Build = $Build" -Source "Remove-Apps"
+  Write-Log -message "Offline Image Build = $Build" -Source "Remove-Apps"
 }
 else {
-  Write-Log "Running in the full OS." -Source "Remove-Apps"
+  Write-Log -message "Running in the full OS." -Source "Remove-Apps"
   $script:Offline = $false
   [int]$Build = [System.Environment]::OSVersion.Version.Build
-  Write-Log "Online OS build = $Build" -Source "Remove-Apps"
+  Write-Log -message "Online OS build = $Build" -Source "Remove-Apps"
 }
 
 Get-AppList | Remove-App
