@@ -6,20 +6,17 @@ $ScriptName = $MyInvocation.MyCommand.Name
 Function Enable-AppXPackageinJSON {
     [CmdletBinding()]
     param (
-        [Parameter()]
+        [Parameter(Mandatory=$false)]
+        [String]
+        $AppxPackageConfigFilePath = $AppxPackagesConfigFileFullName,
+        [Parameter(Mandatory=$true)]
         [String]
         $AppxPackageName
     )
-    $AppxPackagesConfigFileFullName = "$scriptPath\$WindowsVersion\ConfigurationFiles\AppxPackages.json"
-    $AppxPackagesObj = Get-Content "$AppxPackagesConfigFileFullName" -Raw | ConvertFrom-Json
-    ForEach ($Element in $AppxPackagesObj) {
-    If ($Element.AppxPackage -eq "$AppxPackageName") {
-        $Element.VDIState = 'Enabled'
-    }
-}
-$AppxPackagesObj | ConvertTo-Json -depth 32 | Set-Content $AppxPackagesConfigFileFullName
-}
 
+    $AppxPackagesObj = Get-Content "$AppxPackageConfigFilePath" -Raw | ConvertFrom-Json
+    $AppXPackagesObj | ForEach-Object { If ($_.AppxPackage -eq "$AppXPackageName") {$_.VDIState = "Enabled"} } | ConvertTo-Json -depth 32 | Set-Content $AppxPackagesConfigFileFullName
+}
 
 Write-Output "Running '$ScriptName'"
 Write-Output "Creating '$BuildDir'"
@@ -47,6 +44,7 @@ $ScriptPath = "$BuildDir\Virtual-Desktop-Optimization-Tool-master"
 # Update the optimization script's configuration to keep the windows calculator app.
 Write-Output "Staging the Virtual Desktop Optimization Tool at '$ScriptPath'."
 Write-Output "Changing AppPackages.json file to leave Calculator in image."
+$AppxPackagesConfigFileFullName = "$scriptPath\$WindowsVersion\ConfigurationFiles\AppxPackages.json"
 Enable-AppXPackageinJSON -AppxPackageName 'Microsoft.WindowsCalculator'
 If ($Office365Install) {
     Write-Output "Changing AppPackages.json file to leave Office OneNote and Office Hub in image."
