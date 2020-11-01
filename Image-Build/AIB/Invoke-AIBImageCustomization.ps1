@@ -31,7 +31,7 @@ Remove-Item -Path $PrepareWVDImageZip -Force -ErrorAction SilentlyContinue
 $ScriptPath = "$BuildDir\WVD-Master\Image-Build\Customizations"
 Set-Location -Path $ScriptPath
 Write-Output "Running Prepare-WVDImage.ps1"
-.\Prepare-WVDImage.ps1 -RemoveApps $False -Office365Install $Office365Install
+& "$ScriptPath\Prepare-WVDImage.ps1" -RemoveApps $False -Office365Install $Office365Install
 Write-Output "Finished 'Prepare-WVDImage.ps1'."
 # Download Virtual Desktop Optimization Tool from the Virtual Desktop Team GitHub Repo
 $WVDOptimizeURL = 'https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool/archive/master.zip'
@@ -58,7 +58,7 @@ $WVDOptScriptFile = Join-Path -Path $ScriptPath -ChildPath $WVDOptimizeScriptNam
 (Get-Content $WVDOptScriptFile) | ForEach-Object { if (($_ -like 'Set-NetAdapterAdvancedProperty*') -and ($_ -notlike '*-NoRestart*')) { $_ -replace "$_", "$_ -NoRestart" } else { $_ } } | Set-Content $WVDOptScriptFile
 Set-Location $ScriptPath
 Write-Output "Now calling '$WVDOptimizeScriptName'."
-.\$WVDOptimizeScriptName -WindowsVersion $WindowsVersion -Verbose
+& "$WVDOptimizeScriptFile" -WindowsVersion $WindowsVersion -Verbose
 Write-Output "Completed $WVDOptimizeScriptName."
 Write-Output 'Cleaning up from customization scripts.'
 Set-Location "$env:SystemDrive"
