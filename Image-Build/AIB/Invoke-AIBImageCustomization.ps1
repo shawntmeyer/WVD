@@ -30,7 +30,7 @@ Expand-Archive -Path $PrepareWVDImageZip -DestinationPath $BuildDir
 Remove-Item -Path $PrepareWVDImageZip -Force -ErrorAction SilentlyContinue
 $ScriptPath = "$BuildDir\WVD-Master\Image-Build\Customizations"
 Set-Location -Path $ScriptPath
-Write-Output "Running Prepare-WVDImage.ps1"
+Write-Output "Now calling 'Prepare-WVDImage.ps1'"
 & "$ScriptPath\Prepare-WVDImage.ps1" -RemoveApps $False -Office365Install $Office365Install
 Write-Output "Finished 'Prepare-WVDImage.ps1'."
 # Download Virtual Desktop Optimization Tool from the Virtual Desktop Team GitHub Repo
@@ -54,8 +54,8 @@ If ($Office365Install) {
 }
 $WVDOptimizeScriptName = (Get-ChildItem $ScriptPath | Where-Object {$_.Name -like '*optimize*.ps1'}).Name
 Write-Output "Adding the '-NoRestart' switch to the Set-NetAdapterAdvancedProperty line in '$WVDOptimizeScriptName' to prevent the network adapter restart from killing AIB."
-$WVDOptScriptFile = Join-Path -Path $ScriptPath -ChildPath $WVDOptimizeScriptName
-(Get-Content $WVDOptScriptFile) | ForEach-Object { if (($_ -like 'Set-NetAdapterAdvancedProperty*') -and ($_ -notlike '*-NoRestart*')) { $_ -replace "$_", "$_ -NoRestart" } else { $_ } } | Set-Content $WVDOptScriptFile
+$WVDOptimizeScriptFile = Join-Path -Path $ScriptPath -ChildPath $WVDOptimizeScriptName
+(Get-Content $WVDOptimizeScriptFile) | ForEach-Object { if (($_ -like 'Set-NetAdapterAdvancedProperty*') -and ($_ -notlike '*-NoRestart*')) { $_ -replace "$_", "$_ -NoRestart" } else { $_ } } | Set-Content $WVDOptimizeScriptFile
 Set-Location $ScriptPath
 Write-Output "Now calling '$WVDOptimizeScriptName'."
 & "$WVDOptimizeScriptFile" -WindowsVersion $WindowsVersion -Verbose
