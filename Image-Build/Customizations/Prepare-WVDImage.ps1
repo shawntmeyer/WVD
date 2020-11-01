@@ -956,18 +956,19 @@ Function Invoke-ImageCustomization {
         Write-Log -message "Now Removing Built-in Windows Apps."
         & "$PSScriptRoot\RemoveApps\Remove-Apps.ps1"
         $Script:Section = 'Start Menu'
+        $Destination = "$env:SystemDrive\Users\Default\AppData\Local\Microsoft\Windows\Shell\Layoutmodification.xml"
         If ($Office365Install) {
             $LayoutFile = "$PSScriptRoot\StartMenu\StartLayout-Office.xml"
             If (Test-Path $LayoutFile) {
                 Write-Log -Message "Importing new Start Menu Layout with Office Group."
-                Import-StartLayout -LayoutPath "$LayoutFile" -MountPath "c:\"
+                $null = Copy-Item -Path "$LayoutFile" -Destination "$Destination" -Force -ErrorAction SilentlyContinue
             }
         }
         Else {
             $LayoutFile = "$PSScriptRoot\StartMenu\StartLayout-NoOffice.xml"
             If (Test-Path $LayoutFile) {
                 Write-Log -Message "Importing new Start Menu Layout."
-                Import-StartLayout -LayoutPath "$LayoutFile" -MountPath "c:\"
+                $null = Copy-Item -Path "$LayoutFile" -Destination "$Destination" -Force -ErrorAction SilentlyContinue
             }
         }
     }  

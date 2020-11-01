@@ -14,7 +14,7 @@ $location="EastUS"
 # your subscription, this will get your current subscription
 $subscriptionID=$currentAzContext.Subscription.Id
 # image template name
-$imageTemplateName="Win10MS"
+$imageTemplateName="WinMS"
 # distribution properties object name (runOutput), i.e. this gives you the properties of the managed image on completion
 $runOutputName="Win10MS"
 

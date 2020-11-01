@@ -3,26 +3,23 @@ $Office365Install = $true
 $BuildDir = "c:\BuildDir"
 $ScriptName = $MyInvocation.MyCommand.Name
 
-Function Update-ConfigurationJSON {
+Function Update-ServiceConfigurationJSON {
     [CmdletBinding()]
     param (
         [Parameter(Mandatory=$true)]
         [String]
-        $File,
-        [Parameter(Mandatory=$false)]
-        [String]
-        $ElementName = 'Name',
+        $ConfigFile,
         [Parameter(Mandatory=$true)]
         [String]
-        $ElementValue,
+        $ServiceName,
         [Parameter(Mandatory=$true)]
         [String]
         $VDIState
     )
-    Write-Warning "Checking for configuration file '$file'."
-    If (Test-Path $File) {
-        Write-Output "Configuration File found. Updating configuration of '$elementValue' to '$VDIState'."
-        (Get-Content "$File" -Raw | ConvertFrom-Json) | ForEach-Object { If ($_.$ElementName -eq "$ElementValue") {$_.VDIState = $VDIState} } | ConvertTo-Json -depth 32 | Set-Content $File
+    Write-Warning "Checking for configuration file '$Configfile'."
+    If (Test-Path $ConfigFile) {
+        Write-Output "Configuration File found. Updating configuration of '$ServiceName' to '$VDIState'."
+        (Get-Content "$ConfigFile" -Raw | ConvertFrom-Json) | ForEach-Object { If ($_.Name -eq "$ServiceName") {$_.VDIState = $VDIState} } | ConvertTo-Json -depth 32 | Set-Content $ConfigFile
     }
     else {
         Write-Warning "The configuration file not found."
@@ -62,11 +59,9 @@ Remove-Item -Path $AppxPackagesConfigFileFullName -force
 Write-Output "Updating Services Configuration."
 $ServicesConfig = "$ScriptPath\$WindowsVersion\ConfigurationFiles\Services.json"
 Write-Output "Setting the 'Store Install Service' in file to 'Unchanged'."
-Update-ConfigurationJSON -ElementValue 'InstallService' -File $ServicesConfig -VDIState "UnChanged"
+Update-ServiceConfigurationJSON -ServiceName 'InstallService' -ConfigFile $ServicesConfig -VDIState "UnChanged"
 Write-Output "Setting the 'System Maintenance Service' in file to 'Unchanged'."
-Update-ConfigurationJSON -ElementValue 'SysMain' -File $ServicesConfig -VDIState "UnChanged"
-Write-Output "Setting the 'Update Orchestrator Service' in file to 'Unchanged'."
-Update-ConfigurationJSON -ElementValue 'UsoSvc' -File $ServicesConfig -VDIState "UnChanged"
+Update-ServiceConfigurationJSON -ServiceName 'SysMain' -ConfigFile $ServicesConfig -VDIState "UnChanged"
 
 $WVDOptimizeScriptName = (Get-ChildItem $ScriptPath | Where-Object {$_.Name -like '*optimize*.ps1'}).Name
 Write-Output "Adding the '-NoRestart' switch to the Set-NetAdapterAdvancedProperty line in '$WVDOptimizeScriptName' to prevent the network adapter restart from killing AIB."
@@ -81,14 +76,3 @@ Set-Location "$env:SystemDrive"
 Write-Output "Removing '$BuildDir'."
 Remove-Item -Path $BuildDir\* -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path $BuildDir -Recurse -Force -ErrorAction SilentlyContinue
-
-
-<##
-
-Write-Output "Creating '$OEMDir\setupcomplete2.cmd' and adding command to run $ScriptPath\Win10_VirtualDesktop_Optimize.ps1 post Windows Setup."
-$CMDLine = "Powershell.exe -noprofile -noninteractive -executionpolicy bypass -file `"$ScriptPath\Win10_VirtualDesktop_Optimize.ps1`" -WindowsVersion $WindowsVersion -Verbose > %windir%\oem\win10_virtualdesktop_optimize.log"
-$CMDLine | out-file -Encoding ascii -FilePath "$OEMDir\setupcomplete2.cmd"
-# Create the following tag file to force a machine restart from c:\windows\oem\setupcomplete.cmd
-Write-Output "Adding the 'RestartMachine.tag' file to the '$OEMDir'."
-$Null = New-Item -Path "$OEMDir" -Name "RestartMachine.tag" -ItemType File
-##>
