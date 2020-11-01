@@ -27,6 +27,7 @@ $PrepareWVDImageZip= "$BuildDir\WVD-Master.zip"
 Write-Output "Downloading '$PrepWVDImageURL' to '$PrepareWVDImageZip'."
 Invoke-WebRequest -Uri $PrepWVDImageURL -outfile $PrepareWVDImageZip -UseBasicParsing
 Expand-Archive -Path $PrepareWVDImageZip -DestinationPath $BuildDir
+Remove-Item -Path $PrepareWVDImageZip -Force -ErrorAction SilentlyContinue
 $ScriptPath = "$BuildDir\WVD-Master\Image-Build\Customizations"
 Set-Location -Path $ScriptPath
 Write-Output "Running Prepare-WVDImage.ps1"
@@ -34,7 +35,7 @@ Write-Output "Running Prepare-WVDImage.ps1"
 Write-Output "Finished 'Prepare-WVDImage.ps1'."
 # Download Virtual Desktop Optimization Tool from the Virtual Desktop Team GitHub Repo
 $WVDOptimizeURL = 'https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool/archive/master.zip'
-$WVDOptimizeZIP = "$OEMDir\Windows_10_VDI_Optimize-master.zip"
+$WVDOptimizeZIP = "$BuildDir\Windows_10_VDI_Optimize-master.zip"
 Write-Output "Downloading the Virtual Desktop Team's Virtual Desktop Optimization Tool from GitHub."
 Write-Output "Downloading '$WVDOptimizeURL' to '$WVDOptimizeZIP'."
 Invoke-WebRequest -Uri $WVDOptimizeURL -OutFile $WVDOptimizeZIP -UseBasicParsing
