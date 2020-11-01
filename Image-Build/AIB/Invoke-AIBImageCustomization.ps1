@@ -30,7 +30,7 @@ Expand-Archive -Path $PrepareWVDImageZip -DestinationPath $BuildDir
 $ScriptPath = "$BuildDir\WVD-Master\Image-Build\Customizations"
 Set-Location -Path $ScriptPath
 Write-Output "Running Prepare-WVDImage.ps1"
-.\Prepare-WVDImage.ps1 -RemoveApps $False -$Office365Install $Office365Install
+.\Prepare-WVDImage.ps1 -RemoveApps $False -Office365Install $Office365Install
 Write-Output "Finished 'Prepare-WVDImage.ps1'."
 # Download Virtual Desktop Optimization Tool from the Virtual Desktop Team GitHub Repo
 $WVDOptimizeURL = 'https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool/archive/master.zip'
