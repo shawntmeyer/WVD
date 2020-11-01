@@ -16,7 +16,7 @@ Function Update-ServiceConfigurationJSON {
         [String]
         $VDIState
     )
-    Write-Warning "Checking for configuration file '$Configfile'."
+    Write-Output "Checking for configuration file '$Configfile'."
     If (Test-Path $ConfigFile) {
         Write-Output "Configuration File found. Updating configuration of '$ServiceName' to '$VDIState'."
         (Get-Content "$ConfigFile" -Raw | ConvertFrom-Json) | ForEach-Object { If ($_.Name -eq "$ServiceName") {$_.VDIState = $VDIState} } | ConvertTo-Json -depth 32 | Set-Content $ConfigFile
