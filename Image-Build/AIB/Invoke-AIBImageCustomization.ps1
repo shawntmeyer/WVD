@@ -31,7 +31,8 @@ Remove-Item -Path $PrepareWVDImageZip -Force -ErrorAction SilentlyContinue
 $ScriptPath = "$BuildDir\WVD-Master\Image-Build\Customizations"
 Set-Location -Path $ScriptPath
 Write-Output "Now calling 'Prepare-WVDImage.ps1'"
-& "$ScriptPath\Prepare-WVDImage.ps1" -RemoveApps $False -Office365Install $Office365Install
+# & "$ScriptPath\Prepare-WVDImage.ps1" -RemoveApps $False -Office365Install $Office365Install
+& "$ScriptPath\Prepare-WVDImage.ps1" -Office365Install $Office365Install
 Write-Output "Finished 'Prepare-WVDImage.ps1'."
 # Download Virtual Desktop Optimization Tool from the Virtual Desktop Team GitHub Repo
 $WVDOptimizeURL = 'https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool/archive/master.zip'
@@ -46,12 +47,16 @@ $ScriptPath = "$BuildDir\Virtual-Desktop-Optimization-Tool-master"
 Write-Output "Staging the Virtual Desktop Optimization Tool at '$ScriptPath'."
 Write-Output "Changing AppPackages.json file to leave Calculator in image."
 $AppxPackagesConfigFileFullName = "$scriptPath\$WindowsVersion\ConfigurationFiles\AppxPackages.json"
+# Removing AppxPackages.json file to skip appx package removal. This was completed by Prepare-WVDImage.ps1.
+Remove-Item -Path $AppxPackagesConfigFileFullName -force
+<##
 Enable-AppXPackageinJSON -AppxPackageName 'Microsoft.WindowsCalculator'
 If ($Office365Install) {
     Write-Output "Changing AppPackages.json file to leave Office OneNote and Office Hub in image."
     Enable-AppXPackageinJSON -AppxPackageName 'Microsoft.Office.OneNote'
     Enable-AppXPackageinJSON -AppxPackageName 'Microsoft.MicrosoftOfficeHub'
 }
+##>
 $WVDOptimizeScriptName = (Get-ChildItem $ScriptPath | Where-Object {$_.Name -like '*optimize*.ps1'}).Name
 Write-Output "Adding the '-NoRestart' switch to the Set-NetAdapterAdvancedProperty line in '$WVDOptimizeScriptName' to prevent the network adapter restart from killing AIB."
 $WVDOptimizeScriptFile = Join-Path -Path $ScriptPath -ChildPath $WVDOptimizeScriptName
