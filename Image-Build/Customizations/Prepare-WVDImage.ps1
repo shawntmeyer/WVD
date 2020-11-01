@@ -622,7 +622,7 @@ Function Invoke-ImageCustomization {
         [bool]$RemoveApps
     )
 
-    Write-Log -Message "Starting ImagePrep Build Script." -Source 'Main'
+    Write-Log -Message "Starting ImagePrep Build Script."
     If (-not(Test-Path "$env:WinDir\Logs\Software")) {
         $null = New-Item -Path $env:WinDir\Logs -Name Software -ItemType Directory -Force
     }
@@ -636,16 +636,16 @@ Function Invoke-ImageCustomization {
         $dirOffice = "$PSScriptRoot\Office365"
         $OfficeDeploymentToolExe = "$DirOffice\OfficeDeploymentTool.exe"
         $O365Setup = "$DirOffice\setup.exe"
-        Write-Log -Message "Starting script section: `"$Script:Section`"." -Source 'Main'
+        Write-Log -Message "Starting script section: `"$Script:Section`"."
         Write-Log -Message "Downloading Office Deployment Tool and extracting setup.exe"
         $ODTDownloadUrl = Get-InternetUrl -url $O365DepToolWebUrl -searchstring "OfficeDeploymentTool"
         Get-InternetFile -url $ODTDownloadUrl -outputfile $OfficeDeploymentToolExe
-        Write-Log -Message "Extracting 'setup.exe' from Office Deployment Tool." -Source 'Main'
+        Write-Log -Message "Extracting 'setup.exe' from Office Deployment Tool."
         $null = Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -Wait
-        Write-Log -Message "Downloading, installing and configuring Office 365 per '$ref'." -Source 'Main'
+        Write-Log -Message "Downloading, installing and configuring Office 365 per '$ref'."
         $Installer = Start-Process -FilePath "$O365Setup" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru 
-        Write-Log -message "Setup.exe exited with code [$($Installer.ExitCode)]" -Source 'Main'
-        Write-Log -message "Downloading the latest Office 365 ADMX files." -Source 'Main'
+        Write-Log -message "Setup.exe exited with code [$($Installer.ExitCode)]"
+        Write-Log -message "Downloading the latest Office 365 ADMX files."
         [string]$dirTemplates = Join-Path -Path $dirOffice -ChildPath 'Templates'
         If (-not (Test-Path $DirTemplates)) {
             $null = New-Item -Path $DirOffice -Name "Templates" -ItemType Directory -Force
@@ -653,19 +653,19 @@ Function Invoke-ImageCustomization {
         $O365TemplatesExe = "$DirTemplates\AdminTemplates_x64.exe"
         $O365TemplatesUrl = Get-InternetUrl -Url $O365TemplatesWebUrl -searchstring "AdminTemplates_x64"
         Get-InternetFile -url $O365TemplatesUrl -outputfile $O365TemplatesExe
-        Write-Log -Message "Extracting the templates to '$DirTemplates'." -Source 'Main'
+        Write-Log -Message "Extracting the templates to '$DirTemplates'."
         $null = Start-Process -FilePath $O365TemplatesExe -ArgumentList "/extract:$dirTemplates /quiet" -Wait -PassThru
         Write-Log "Copying ADMX and ADML files to PolicyDefinitions folder."
         $null = Copy-Item -Path "$DirTemplates\admx\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -Force
         $null = Copy-Item -Path "$DirTemplates\admx\en-us\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us" -force -PassThru
 
-        Write-Log -Message "Update User LGPO registry text file." -Source 'Main'
+        Write-Log -Message "Update User LGPO registry text file."
         # Turn off insider notifications
         Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\policies\microsoft\office\16.0\common' -RegistryValue InsiderSlabBehavior -RegistryType DWord -RegistryData 2
 
         If (($EmailCacheTime -ne 'Not Configured') -or ($CalendarSync -ne 'Not Configured') -or ($CalendarSyncMonths -ne 'Not Configured')) {
             # Enable Outlook Cached Mode
-            Write-Log -Message "Configuring Outlook Cached Mode." -source 'Main'
+            Write-Log -Message "Configuring Outlook Cached Mode."
             Update-LocalGPOTextFile -Scope User -RegistryKeyPath 'Software\Policies\Microsoft\Office\16.0\Outlook\Cached Mode' -RegistryValue 'Enable' -RegistryType DWord -RegistryData 1
         }
         
@@ -708,7 +708,7 @@ Function Invoke-ImageCustomization {
             }
             REG UNLOAD HKLM\DefaultUser
         }
-        Write-Log -Message "Update Computer LGPO registry text file." -Source 'Main'
+        Write-Log -Message "Update Computer LGPO registry text file."
         $RegistryKeyPath = 'SOFTWARE\Policies\Microsoft\Office\16.0\Common\OfficeUpdate'
         # Hide Office Update Notifications
         Update-LocalGPOTextFile -scope Computer -RegistryKeyPath $RegistryKeyPath -RegistryValue 'HideUpdateNotifications' -RegistryType DWord -RegistryData 1
@@ -720,7 +720,7 @@ Function Invoke-ImageCustomization {
         }
 
         Invoke-LGPO -SearchTerm "$Script:Section"
-        Write-Log -Message "Completed the $Script:Section Section" -Source 'Main'
+        Write-Log -Message "Completed the $Script:Section Section"
     }
     #endregion Office 365
 
@@ -729,7 +729,7 @@ Function Invoke-ImageCustomization {
         $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/install-office-on-wvd-master-image"
 
         $Script:Section = 'OneDrive'
-        Write-Log -Message "Starting OneDrive installation and configuration in accordance with '$ref'." -Source 'Main'
+        Write-Log -Message "Starting OneDrive installation and configuration in accordance with '$ref'."
 
         $output = "$PSScriptRoot\onedrivesetup.exe"
         Get-InternetFile -url $OneDriveURL -outputfile $output
@@ -737,23 +737,23 @@ Function Invoke-ImageCustomization {
         $OneDriveUninstaller = "$env:WinDir\SysWow64\OneDriveSetup.exe"
 
         If (Test-Path -Path $OneDriveUninstaller) {
-            Write-Log -Message "Uninstalling the OneDrive per-user installations." -Source 'Main'
+            Write-Log -Message "Uninstalling the OneDrive per-user installations."
             $Uninstaller = Start-Process -FilePath $OneDriveUninstaller -ArgumentList "/uninstall" -wait -PassThru
-            Write-Log -Message "OneDriveSetup.exe exited with code [$($Uninstaller.ExitCode)]." -Source 'Main'
+            Write-Log -Message "OneDriveSetup.exe exited with code [$($Uninstaller.ExitCode)]."
         }
  
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\OneDrive" -Name 'AllUsersInstall' -Value 1 -Type DWord
 
-        Write-Log -message "Starting installation of OneDrive for all users." -Source 'Main'
+        Write-Log -message "Starting installation of OneDrive for all users."
  
         $Arguments = "/allusers"
-        Write-Log -Message "Trigger installation of file '$output' with switches '$Arguments'" -Source 'Main'
+        Write-Log -Message "Trigger installation of file '$output' with switches '$Arguments'"
  
         $Installer = Start-Process -FilePath $output -ArgumentList $Arguments -Wait -PassThru
  
-        Write-Log -message "The OneDriveSetup.exe install exited with code [$($Installer.ExitCode)]" -Source 'Main'
+        Write-Log -message "The OneDriveSetup.exe install exited with code [$($Installer.ExitCode)]"
 
-        Write-Log -message "Copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
+        Write-Log -message "Copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders."
 
         $InstallDir = "${env:ProgramFiles(x86)}\Microsoft OneDrive"
         $OnedriveVersion = (Get-ItemProperty -Path "$installDir\onedrive.exe").VersionInfo.ProductVersion
@@ -771,18 +771,18 @@ Function Invoke-ImageCustomization {
         }
 
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name OneDrive -Value "C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe /background" -Type String
-        Write-Log -Message "Now Configuring the Update Ring to Production" -Source 'Main'
+        Write-Log -Message "Now Configuring the Update Ring to Production"
         Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'GPOSetUpdateRing' -RegistryType DWORD -RegistryData 5
-        Write-Log -Message "Now Configuring OneDrive to automatically sign-in with logged on user credentials." -Source 'Main'
+        Write-Log -Message "Now Configuring OneDrive to automatically sign-in with logged on user credentials."
         Update-LocalGPOTextFile -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'SilentAccountConfig' -RegistryType DWord -RegistryData 1
-        Write-Log -Message "Enabling Files on Demand" -Source 'Main'
+        Write-Log -Message "Enabling Files on Demand"
         Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'FilesOnDemandEnabled' -RegistryType DWORD -RegistryData 1
         If ($AADTenantID -and $AADTenantID -ne '') {
-            Write-Log "Applying OneDrive for Business Known Folder Move Silent Configuration Settings." -Source 'Main'
+            Write-Log "Applying OneDrive for Business Known Folder Move Silent Configuration Settings."
             Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue 'KFMSilentOptIn' -RegistryType String -RegistryData "$AADTenantID"
         }
         Invoke-LGPO -SearchTerm "$Script:Section"
-        Write-Log -Message "Complete $Script:Section Section." -Source 'Main'
+        Write-Log -Message "Complete $Script:Section Section."
     }
 
     #endregion OneDrive
@@ -796,41 +796,41 @@ Function Invoke-ImageCustomization {
 
         $Script:Section = 'Teams'
 
-        Write-Log -Message "Starting Teams Installation and Configuration in accordance with '$ref'." -Source 'Main'
+        Write-Log -Message "Starting Teams Installation and Configuration in accordance with '$ref'."
         $VSRedist = "$PSScriptRoot\VSRedist.exe"
-        Write-Log -Message "Downloading Visual Studio Redistributable Installer." -Source 'Main'
+        Write-Log -Message "Downloading Visual Studio Redistributable Installer."
         Get-InternetFile -url $VSRedistUrl -outputfile $VSRedist
 
-        Write-Log -Message "Downloading the latest Websocket Service Installer." -Source 'Main'
+        Write-Log -Message "Downloading the latest Websocket Service Installer."
         $WebSocketMSI = "$PSScriptRoot\Websocket.msi"
         $WebSocketUrl = Get-InternetUrl -Url $WebSocketWebUrl -searchstring "WebSocket Service"
         Get-InternetFile -url $WebSocketUrl -outputfile $WebSocketMSI
 
-        Write-Log -Message "Now downloading the latest Teams 64-bit installer." -Source 'Main'
+        Write-Log -Message "Now downloading the latest Teams 64-bit installer."
         $TeamsMSI = "$PSScriptRoot\Teams_Windows_x64.msi"
         $TeamsUrl = Get-InternetUrl -URL $TeamsWebUrl -searchstring "Teams_windows_x64.msi"
         Get-InternetFile -url $TeamsUrl -outputfile $TeamsMSI
  
-        Write-Log -message "Installing the latest VS Redistributables" -Source 'Main'
+        Write-Log -message "Installing the latest VS Redistributables"
         $Arguments = "/install /quiet /norestart"
-        Write-Log -message "Running `"$VSRedist $Arguments`"." -Source 'Main'
+        Write-Log -message "Running `"$VSRedist $Arguments`"."
         $Installer = Start-Process -FilePath $VSRedist -ArgumentList $Arguments -Wait -PassThru
-        Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
+        Write-Log -message "The exit code is $($Installer.ExitCode)"
 
-        Write-Log -message "Installating the WebSocket Service." -Source 'Main'
+        Write-Log -message "Installating the WebSocket Service."
         $Arguments = "/i `"$WebsocketMSI`" /l*v `"$env:WinDir\Logs\Software\WebSocket_MSI.log`" /quiet"
-        Write-Log -message "Running 'msiexec.exe $Arguments'" -Source 'Main'
+        Write-Log -message "Running 'msiexec.exe $Arguments'"
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
-        Write-Log -message "The exit code is $($Installer.ExitCode)" -Source 'Main'
+        Write-Log -message "The exit code is $($Installer.ExitCode)"
 
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\Teams" -Name IsWVDEnvironment -Value 1 -Type DWord
 
-        Write-Log -message "Starting installation of Microsoft Teams for all users." -Source 'Main'
+        Write-Log -message "Starting installation of Microsoft Teams for all users."
         $Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1 ALLUSERS=1" 
-        Write-Log -message "Running 'msiexec.exe $Arguments'" -Source 'Main'
+        Write-Log -message "Running 'msiexec.exe $Arguments'"
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
-        Write-Log -message "'msiexec.exe' exited with code [$($Installer.ExitCode)]." -Source 'Main'
-        Write-Log -message "Completed $Script:Section Section." -Source 'Main'
+        Write-Log -message "'msiexec.exe' exited with code [$($Installer.ExitCode)]."
+        Write-Log -message "Completed $Script:Section Section."
     }
 
     #endregion
@@ -839,15 +839,15 @@ Function Invoke-ImageCustomization {
 
     If ($FSLogixInstall) {
         $Script:Section = 'FSLogix Agent'
-        Write-Log "Starting FSLogix Agent Installation and Configuration." -Source 'Main'
-        Write-Log "Downloading FSLogix Agent from Microsoft." -Source 'Main'
+        Write-Log "Starting FSLogix Agent Installation and Configuration."
+        Write-Log "Downloading FSLogix Agent from Microsoft."
         $output = "$PSScriptRoot\fslogix.zip"
         Get-InternetFile -url $FSLogixUrl -outputfile $output
-        Write-Log -message "Extracting FSLogix Agent from zip." -Source 'Main'
+        Write-Log -message "Extracting FSLogix Agent from zip."
         $destpath = "$PSScriptRoot\FSLogix"
         Expand-Archive $output -DestinationPath $destpath -Force
         Start-Sleep -Seconds 5
-        Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
+        Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders."
         $admx = Get-ChildItem "$destpath" -Filter "*.admx" -Recurse
         $adml = Get-ChildItem "$destpath" -filter "*.adml" -Recurse
         ForEach ($file in $admx) {
@@ -858,17 +858,17 @@ Function Invoke-ImageCustomization {
         }
         $Installer = "$PSScriptRoot\fslogix\x64\release\fslogixappssetup.exe"
         If (Test-Path $Installer) {
-            Write-Log -Message "Installation File: '$installer' successfully extracted." -Source 'Main'
+            Write-Log -Message "Installation File: '$installer' successfully extracted."
         }
 
         $Arguments = "/quiet"
-        Write-Log -Message "Now starting FSLogix Agent installation with command line: '$installer $Arguments'." -Source 'Main'
+        Write-Log -Message "Now starting FSLogix Agent installation with command line: '$installer $Arguments'."
 
         $Install = Start-Process -FilePath $Installer -ArgumentList "$Arguments" -Wait -PassThru
 
-        Write-Log -message "The fslogixappssetup.exe exit code is [$($Install.ExitCode)]." -Source 'Main'
+        Write-Log -message "The fslogixappssetup.exe exit code is [$($Install.ExitCode)]."
 
-        Write-Log -Message "Now performing FSLogix Configuration if enabled." -Source 'Main'
+        Write-Log -Message "Now performing FSLogix Configuration if enabled."
         $RegistryKey = 'HKLM:\Software\FSLogix\Profiles'
 
         if ( $FSLogixVHDPath -and $FSLogixVHDPath -ne '' ) {
@@ -883,7 +883,7 @@ Function Invoke-ImageCustomization {
             Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'Software\Policies\FSLogix\ODFC' -RegistryValue IncludeOfficeActivation -RegistryType DWord -RegistryData 1
         }
         Invoke-LGPO -SearchTerm "$Script:Section"
-        Write-Log -Message "Completed $Script:Section script section." -Source 'Main'
+        Write-Log -Message "Completed $Script:Section script section."
     }
 
     #endregion FSLogix Agent
@@ -894,11 +894,11 @@ Function Invoke-ImageCustomization {
         $Script:Section = 'Edge Enterprise'
         $ref = 'https://docs.microsoft.com/en-us/deployedge/deploy-edge-with-configuration-manager'
         # Disable Edge Updates
-        Write-Log -Message "Starting Microsoft Edge Enterprise Installation and Configuration in accordance with '$ref'." -Source 'Main'
+        Write-Log -Message "Starting Microsoft Edge Enterprise Installation and Configuration in accordance with '$ref'."
 
         $dirTemplates = "$PSScriptRoot\Edge\Templates"
 
-        Write-Log "Now downloading latest Edge installer and Administrative Templates." -Source 'Main'
+        Write-Log "Now downloading latest Edge installer and Administrative Templates."
 
         $EdgeUpdatesJSON = Invoke-WebRequest -Uri $EdgeUpdatesAPIURL -UseBasicParsing
         $content = $EdgeUpdatesJSON.content | ConvertFrom-Json
@@ -915,7 +915,7 @@ Function Invoke-ImageCustomization {
         Expand-Archive $templateszip -DestinationPath $destpath -Force
         $msifile = "$PSScriptRoot\MicrosoftEdgeEnteprisex64.msi"
         Get-InternetFile -url $EdgeUrl -outputfile $msifile
-        Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders." -Source 'Main'
+        Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders."
         $admx = Get-ChildItem "$destpath" -Filter "*.admx" -Recurse
         $adml = Get-ChildItem "$destpath" -filter "*.adml" -Recurse
         ForEach ($file in $admx) {
@@ -925,17 +925,17 @@ Function Invoke-ImageCustomization {
             $null = Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
         }
         If ($DisableUpdates) {
-            Write-Log -Message "Now disabling Edge Automatic Updates" -Source 'Main'
+            Write-Log -Message "Now disabling Edge Automatic Updates"
             Update-LocalGPOTextFile -scope 'Computer' -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue 'UpdateDefault' -RegistryType DWORD -RegistryData 0
         }
      
         $installer = "msiexec.exe"
-        Write-Log -message "Starting installation of Microsoft Edge Enterprise." -Source 'Main'
+        Write-Log -message "Starting installation of Microsoft Edge Enterprise."
         $Arguments = "/i `"$msifile`" /q" 
-        Write-Log -message "Running '$installer $Arguments'" -Source 'Main'
+        Write-Log -message "Running '$installer $Arguments'"
         $Install = Start-Process -FilePath "$installer" -ArgumentList $Arguments -Wait -PassThru
-        Write-Log -message "'$installer' exit code is [$($Install.ExitCode)]." -Source 'Main'
-        Write-Log -Message "Complete $Script:Section script section." -Source 'Main'
+        Write-Log -message "'$installer' exit code is [$($Install.ExitCode)]."
+        Write-Log -Message "Complete $Script:Section script section."
 
     }
 
@@ -944,7 +944,7 @@ Function Invoke-ImageCustomization {
     #region Workplace Join
 
     $Script:Section = 'WorkPlace Join'
-    Write-Log "Now disabling Workplace Join to prevent issue with Office Activation." -Source 'Main'
+    Write-Log "Now disabling Workplace Join to prevent issue with Office Activation."
     # Block domain joined machines from inadvertently getting Azure AD registered by users.
     Set-RegistryValue -Key 'HKLM:\Software\Policies\Microsoft\Windows\WorkplaceJoin' -Name BlockAADWorkplaceJoin -Type DWord -Value 1
 
@@ -953,7 +953,7 @@ Function Invoke-ImageCustomization {
     #region RemoveApps
     If ($RemoveApps) {
         $Script:Section = 'Remove Apps'
-        Write-Log "Now Removing Built-in Windows Apps." -Source 'Main'
+        Write-Log "Now Removing Built-in Windows Apps."
         & "$PSScriptRoot\RemoveApps\Remove-Apps.ps1"
     }  
     #endregion
@@ -964,22 +964,22 @@ Function Invoke-ImageCustomization {
 
     $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/set-up-customize-master-image"
 
-    Write-Log "Now starting to apply $Script:Section in accordance with '$ref'." -Source 'Main'
+    Write-Log "Now starting to apply $Script:Section in accordance with '$ref'."
 
     If ($DisableUpdates) {
-        Write-Log "Disabling Windows Updates via Group Policy setting" -Source 'Main'
+        Write-Log "Disabling Windows Updates via Group Policy setting"
         Update-LocalGPOTextFile -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -RegistryValue 'NoAutoUpdate' -RegistryType 'Dword' -RegistryData 1
     }
-    Write-Log "Enabling Time Zone Redirection from Client to Session Host." -Source 'Main'
+    Write-Log "Enabling Time Zone Redirection from Client to Session Host."
     Update-LocalGPOTextFile -scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -RegistryValue 'fEnableTimeZoneRedirection' -RegistryType 'DWord' -RegistryData 1
 
-    Write-Log "Disabling Storage Sense GPO" -Source 'Main'
+    Write-Log "Disabling Storage Sense GPO"
 
     Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows\StorageSense' -RegistryValue 'AllowStorageSenseGlobal' -RegistryType 'DWord' -RegistryData 0
 
     # Fix issues with Doctor Watson Crashes
     # List of Registry Values from https://docs.microsoft.com/en-us/windows/win32/wer/wer-settings
-    Write-Log -Message "Removing Corporate Windows Error Reporting Server if set in registry." -Source 'Main'
+    Write-Log -Message "Removing Corporate Windows Error Reporting Server if set in registry."
     $RegValues = "CorporateWERDirectory", "CorporateWERPortNumber", "CorporateWERServer", "CorporateWERUseAuthentication", "CorporateWERUseSSL"
     $RegPath = "HKLM:\Software\Microsoft\Windows\Windows Error Reporting"
     ForEach ($value in $regvalues) {
@@ -989,7 +989,7 @@ Function Invoke-ImageCustomization {
     }
 
     # Fix 5k resolution support
-    Write-Log -Message "Fixing 5K Resolution Support" -Source 'Main'
+    Write-Log -Message "Fixing 5K Resolution Support"
 
     $RegistryKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp"
     Set-RegistryValue -Key $RegistryKey -Name MaxMonitors -Type DWord -Value 4
@@ -1001,7 +1001,7 @@ Function Invoke-ImageCustomization {
     Set-RegistryValue -Key $RegistryKey -Name MaxYResolution -Type DWord -Value 2880
 
     Invoke-LGPO -SearchTerm "$Script:Section"
-    Write-Log "Completed $Script:Section script section." -Source 'Main'
+    Write-Log "Completed $Script:Section script section."
 
     #endregion
 
@@ -1011,7 +1011,7 @@ Function Invoke-ImageCustomization {
         $Script:Section = 'Azure VHD Image Settings'
 
         # The following steps are from: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/prepare-for-upload-vhd-image
-        Write-Log -Message "Performing Configuration spelled out in 'https://docs.microsoft.com/en-us/azure/virtual-machines/windows/prepare-for-upload-vhd-image'." -Source 'Main'
+        Write-Log -Message "Performing Configuration spelled out in 'https://docs.microsoft.com/en-us/azure/virtual-machines/windows/prepare-for-upload-vhd-image'."
     
         # Remove the WinHTTP proxy
         netsh winhttp reset proxy
@@ -1102,17 +1102,17 @@ Function Invoke-ImageCustomization {
     
         Invoke-LGPO -SearchTerm "$Script:Section"
     
-        Write-Log "Completed $Script:Section script section." -Source 'Main'
+        Write-Log "Completed $Script:Section script section."
 
     }
     #endregion
 
     $Script:Section = 'Cleanup'
-    Write-Log "Outputing Group Policy Results and Local GPO Backup to '$Script:LogDir\LGPO'" -Source 'Main'
+    Write-Log "Outputing Group Policy Results and Local GPO Backup to '$Script:LogDir\LGPO'"
     $null = Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -Wait
     $null = Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -Wait
     If ( $CleanupImage ) { Invoke-CleanMgr }
-    Write-Log -message "$scriptFileName completed." -source 'Main'
+    Write-Log -message "$scriptFileName completed."
     Remove-Item "$PSScriptRoot\*" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item "$PSScriptRoot" -Recurse -force -ErrorAction SilentlyContinue
 }
