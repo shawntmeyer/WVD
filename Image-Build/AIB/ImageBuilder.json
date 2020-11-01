@@ -47,11 +47,32 @@
                     "version": "latest"                
                 },
                 "customize": [
+                    { 
+                        "type": "PowerShell", 
+                        "name": "CreateBuildDir", 
+                        "inline": "New-Item -Name BuildDir -Path $env:SystemDrive -ItemType Directory -Force",
+                        "validExitCodes": "0",
+                        "runElevated": "true" 
+                    },
                     {
                         "type": "PowerShell",
                         "name": "InvokeAIBImageCustomizationScript",
                         "scriptUri": "https://raw.githubusercontent.com/shawntmeyer/WVD/master/Image-Build/AIB/Invoke-AIBImageCustomization.ps1"
-                    },                         
+                    },
+                    {
+                        "Type": "Powershell",
+                        "name": "RemoveBuildDirfiles",
+                        "inline": "Remove-Item $env:SystemDrive\\BuildDir\\* -Recurse -Force -ErrorAction SilentlyContinue",
+                        "validExitCodes": "0",
+                        "runElevated": "true" 
+                    }, 
+                    {
+                        "Type": "Powershell",
+                        "name": "RemoveBuildDir",
+                        "inline": "Remove-Item $env:SystemDrive\\BuildDir -Recurse -Force -ErrorAction SilentlyContinue",
+                        "validExitCodes": "0",
+                        "runElevated": "true" 
+                    },                       
                     {
                         "type": "WindowsUpdate",
                         "searchCriteria": "IsInstalled=0",
@@ -72,8 +93,7 @@
                             "baseosimg": "windows10MS"
                         },
                         "replicationRegions": [
-                        "<region1>",
-                        "<region2>"
+                        "<region1>"
                         ]
                     }
                 ]
