@@ -80,7 +80,7 @@ Write-Output "Adding the '-NoRestart' switch to the Set-NetAdapterAdvancedProper
 $WVDOptimizeScriptFile = Join-Path -Path $ScriptPath -ChildPath $WVDOptimizeScriptName
 (Get-Content $WVDOptimizeScriptFile) | ForEach-Object { if (($_ -like 'Set-NetAdapterAdvancedProperty*') -and ($_ -notlike '*-NoRestart*')) { $_ -replace "$_", "$_ -NoRestart" } else { $_ } } | Set-Content $WVDOptimizeScriptFile
 Write-Output "Removing the possibly invasive disk cleanup routine starting at c:\"
-(Get-Content $WVDOptimizeScriptFile) | ForEach-Object { if ($_ -like 'Get-ChildItem -Path c:\ -include*') { $_ -replace "$_", "# $_" } else { $_ } } | Set-Content $WVDOptimizeScriptFile
+(Get-Content $WVDOptimizeScriptFile) | ForEach-Object { if ($_ -like 'Get-ChildItem -Path c:\ -include*') { "# $_" } else { $_ } } | Set-Content $WVDOptimizeScriptFile
 Write-Output "Now calling '$WVDOptimizeScriptName'."
 & "$WVDOptimizeScriptFile" -WindowsVersion $WindowsVersion -Verbose
 Write-Output "Completed $WVDOptimizeScriptName."
