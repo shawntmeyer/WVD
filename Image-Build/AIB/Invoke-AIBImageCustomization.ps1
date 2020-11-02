@@ -19,7 +19,9 @@ Function Update-ServiceConfigurationJSON {
     Write-Output "Checking for configuration file '$Configfile'."
     If (Test-Path $ConfigFile) {
         Write-Output "Configuration File found. Updating configuration of '$ServiceName' to '$VDIState'."
-        (Get-Content "$ConfigFile" -Raw | ConvertFrom-Json) | ForEach-Object { If ($_.Name -eq "$ServiceName") {$_.VDIState = $VDIState} } | ConvertTo-Json -depth 32 | Set-Content $ConfigFile
+        $ConfigObj = Get-Content "$ConfigFile" -Raw | ConvertFrom-Json
+        $ConfigObj | ForEach-Object {If($_.Name -eq "$ServiceName"){$_.VDIState = $VDIState}}
+        $ConfigObj | ConvertTo-Json -depth 32 | Set-Content $ConfigFile
     }
     else {
         Write-Warning "The configuration file not found."
@@ -42,6 +44,8 @@ Write-Output "Now calling 'Prepare-WVDImage.ps1'"
 # & "$ScriptPath\Prepare-WVDImage.ps1" -RemoveApps $False -Office365Install $Office365Install
 & "$ScriptPath\Prepare-WVDImage.ps1" -Office365Install $Office365Install
 Write-Output "Finished 'Prepare-WVDImage.ps1'."
+
+<## Commenting out the Virtual Desktop Optimization Tool until support from that group can be updated.
 # Download Virtual Desktop Optimization Tool from the Virtual Desktop Team GitHub Repo
 $WVDOptimizeURL = 'https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool/archive/master.zip'
 $WVDOptimizeZIP = "$BuildDir\Windows_10_VDI_Optimize-master.zip"
@@ -71,6 +75,8 @@ Set-Location $ScriptPath
 Write-Output "Now calling '$WVDOptimizeScriptName'."
 & "$WVDOptimizeScriptFile" -WindowsVersion $WindowsVersion -Verbose
 Write-Output "Completed $WVDOptimizeScriptName."
+##>
+
 Write-Output 'Cleaning up from customization scripts.'
 Set-Location "$env:SystemDrive"
 Write-Output "Removing '$BuildDir'."

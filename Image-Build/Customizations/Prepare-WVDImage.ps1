@@ -1122,12 +1122,28 @@ Function Invoke-ImageCustomization {
 
     }
     #endregion
+    #region VDI Optimizations
+    If ($VDOptimization) {
+        $Script:Section = 'VDI Optimizations'
 
+        Write-Log -message "Starting '$Script:Section' script section."
+        Write-Log -message "Applying selective settings from the Virtual Desktop Optimization Tool available at https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool"
+
+    }
+    #endregion
     $Script:Section = 'Cleanup'
     Write-Log -message "Outputing Group Policy Results and Local GPO Backup to '$Script:LogDir\LGPO'"
     $null = Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -Wait
     $null = Start-Process -FilePath "$PSScriptRoot\LGPO\lgpo.exe" -ArgumentList "/b `"$Script:LogDir\LGPO`" /n `"WVD Image Local Group Policy Settings`"" -Wait
-    If ( $CleanupImage ) { Invoke-CleanMgr }
+    If ( $CleanupImage ) {
+        Write-Log -message "Performing system cleanup activities spelled out in 'https://docs.microsoft.com/en-us/windows-server/remote/remote-desktop-services/rds-vdi-recommendations-2004'."
+        Get-ChildItem -Path c:\ -Include *.tmp, *.dmp, *.etl, *.evtx, thumbcache*.db, *.log -File -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -ErrorAction SilentlyContinue
+        Remove-Item -Path $env:ProgramData\Microsoft\Windows\WER\Temp\* -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $env:ProgramData\Microsoft\Windows\WER\ReportArchive\* -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path $env:ProgramData\Microsoft\Windows\WER\ReportQueue\* -Recurse -Force -ErrorAction SilentlyContinue
+        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+        Clear-BCCache -Force -ErrorAction SilentlyContinue
+    }
     Write-Log -message "$scriptFileName completed."
     Remove-Item "$PSScriptRoot\*" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item "$PSScriptRoot" -Recurse -force -ErrorAction SilentlyContinue
