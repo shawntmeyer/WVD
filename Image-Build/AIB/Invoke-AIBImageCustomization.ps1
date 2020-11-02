@@ -66,16 +66,29 @@ Write-Output "Setting the 'System Maintenance Service' in file to 'Unchanged'."
 Update-ServiceConfigurationJSON -ServiceName 'SysMain' -ConfigFile $ServicesConfig -VDIState "UnChanged"
 Write-Output "Setting the 'Update Orchestration Service' in file to 'Unchanged'."
 Update-ServiceConfigurationJSON -ServiceName 'UsoSvc' -ConfigFile $ServicesConfig -VDIState "UnChanged"
-
+Write-Output "Setting the 'Volume Shadow Copy Service' in file to 'Unchanged'."
+Update-ServiceConfigurationJSON -ServiceName 'VSS' -ConfigFile $ServicesConfig -VDIState "UnChanged"
+# DefaultUserSettings.txt update
+$TextFile = "$scriptPath\$WindowsVersion\ConfigurationFiles\DefaultUserSettings.txt"
+If (Test-Path $TextFile) {
+    # Remove Blank Lines
+    (Get-Content $TextFile) | ForEach-Object { if ($_ -ne '') { $_ } } | Set-Content $TextFile
+}
+# Script Updates
 $WVDOptimizeScriptName = (Get-ChildItem $ScriptPath | Where-Object {$_.Name -like '*optimize*.ps1'}).Name
 Write-Output "Adding the '-NoRestart' switch to the Set-NetAdapterAdvancedProperty line in '$WVDOptimizeScriptName' to prevent the network adapter restart from killing AIB."
 $WVDOptimizeScriptFile = Join-Path -Path $ScriptPath -ChildPath $WVDOptimizeScriptName
 (Get-Content $WVDOptimizeScriptFile) | ForEach-Object { if (($_ -like 'Set-NetAdapterAdvancedProperty*') -and ($_ -notlike '*-NoRestart*')) { $_ -replace "$_", "$_ -NoRestart" } else { $_ } } | Set-Content $WVDOptimizeScriptFile
+Write-Output "Removing the possibly invasive disk cleanup routine starting at c:\"
+(Get-Content $WVDOptimizeScriptFile) | ForEach-Object { if ($_ -like 'Get-ChildItem -Path c:\ -include*') { $_ -replace "$_", "# $_" } else { $_ } } | Set-Content $WVDOptimizeScriptFile
 Write-Output "Now calling '$WVDOptimizeScriptName'."
 & "$WVDOptimizeScriptFile" -WindowsVersion $WindowsVersion -Verbose
 Write-Output "Completed $WVDOptimizeScriptName."
 Start-Sleep 5
+#Section Install App Y
+
 Write-Output 'Cleaning up from customization scripts.'
 Write-Output "Removing '$BuildDir'."
 Remove-Item -Path $BuildDir\* -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path $BuildDir -Recurse -Force -ErrorAction SilentlyContinue
+# This is some change
