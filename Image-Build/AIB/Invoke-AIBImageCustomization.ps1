@@ -39,13 +39,11 @@ Invoke-WebRequest -Uri $PrepWVDImageURL -outfile $PrepareWVDImageZip -UseBasicPa
 Expand-Archive -Path $PrepareWVDImageZip -DestinationPath $BuildDir
 Remove-Item -Path $PrepareWVDImageZip -Force -ErrorAction SilentlyContinue
 $ScriptPath = "$BuildDir\WVD-Master\Image-Build\Customizations"
-Set-Location -Path $ScriptPath
 Write-Output "Now calling 'Prepare-WVDImage.ps1'"
 # & "$ScriptPath\Prepare-WVDImage.ps1" -RemoveApps $False -Office365Install $Office365Install
 & "$ScriptPath\Prepare-WVDImage.ps1" -Office365Install $Office365Install
 Write-Output "Finished 'Prepare-WVDImage.ps1'."
 
-<## Commenting out the Virtual Desktop Optimization Tool until support from that group can be updated.
 # Download Virtual Desktop Optimization Tool from the Virtual Desktop Team GitHub Repo
 $WVDOptimizeURL = 'https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool/archive/master.zip'
 $WVDOptimizeZIP = "$BuildDir\Windows_10_VDI_Optimize-master.zip"
@@ -66,19 +64,18 @@ Write-Output "Setting the 'Store Install Service' in file to 'Unchanged'."
 Update-ServiceConfigurationJSON -ServiceName 'InstallService' -ConfigFile $ServicesConfig -VDIState "UnChanged"
 Write-Output "Setting the 'System Maintenance Service' in file to 'Unchanged'."
 Update-ServiceConfigurationJSON -ServiceName 'SysMain' -ConfigFile $ServicesConfig -VDIState "UnChanged"
+Write-Output "Setting the 'Update Orchestration Service' in file to 'Unchanged'."
+Update-ServiceConfigurationJSON -ServiceName 'UsoSvc' -ConfigFile $ServicesConfig -VDIState "UnChanged"
 
 $WVDOptimizeScriptName = (Get-ChildItem $ScriptPath | Where-Object {$_.Name -like '*optimize*.ps1'}).Name
 Write-Output "Adding the '-NoRestart' switch to the Set-NetAdapterAdvancedProperty line in '$WVDOptimizeScriptName' to prevent the network adapter restart from killing AIB."
 $WVDOptimizeScriptFile = Join-Path -Path $ScriptPath -ChildPath $WVDOptimizeScriptName
 (Get-Content $WVDOptimizeScriptFile) | ForEach-Object { if (($_ -like 'Set-NetAdapterAdvancedProperty*') -and ($_ -notlike '*-NoRestart*')) { $_ -replace "$_", "$_ -NoRestart" } else { $_ } } | Set-Content $WVDOptimizeScriptFile
-Set-Location $ScriptPath
 Write-Output "Now calling '$WVDOptimizeScriptName'."
 & "$WVDOptimizeScriptFile" -WindowsVersion $WindowsVersion -Verbose
 Write-Output "Completed $WVDOptimizeScriptName."
-##>
-
+Start-Sleep 5
 Write-Output 'Cleaning up from customization scripts.'
-Set-Location "$env:SystemDrive"
 Write-Output "Removing '$BuildDir'."
 Remove-Item -Path $BuildDir\* -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path $BuildDir -Recurse -Force -ErrorAction SilentlyContinue
