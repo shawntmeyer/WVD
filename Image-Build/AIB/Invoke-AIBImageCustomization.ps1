@@ -60,14 +60,14 @@ Remove-Item -Path $AppxPackagesConfigFileFullName -force
 # Update Services Configuration
 Write-Output "Updating Services Configuration."
 $ServicesConfig = "$ScriptPath\$WindowsVersion\ConfigurationFiles\Services.json"
-Write-Output "Setting the 'Store Install Service' in file to 'Unchanged'."
-Update-ServiceConfigurationJSON -ServiceName 'InstallService' -ConfigFile $ServicesConfig -VDIState "UnChanged"
-Write-Output "Setting the 'System Maintenance Service' in file to 'Unchanged'."
-Update-ServiceConfigurationJSON -ServiceName 'SysMain' -ConfigFile $ServicesConfig -VDIState "UnChanged"
-Write-Output "Setting the 'Update Orchestration Service' in file to 'Unchanged'."
-Update-ServiceConfigurationJSON -ServiceName 'UsoSvc' -ConfigFile $ServicesConfig -VDIState "UnChanged"
-Write-Output "Setting the 'Volume Shadow Copy Service' in file to 'Unchanged'."
-Update-ServiceConfigurationJSON -ServiceName 'VSS' -ConfigFile $ServicesConfig -VDIState "UnChanged"
+Write-Output "Setting the 'Store Install Service' in file to 'Default'."
+Update-ServiceConfigurationJSON -ServiceName 'InstallService' -ConfigFile $ServicesConfig -VDIState "Default"
+Write-Output "Setting the 'System Maintenance Service' in file to 'Default'."
+Update-ServiceConfigurationJSON -ServiceName 'SysMain' -ConfigFile $ServicesConfig -VDIState "Default"
+Write-Output "Setting the 'Update Orchestration Service' in file to 'Default'."
+Update-ServiceConfigurationJSON -ServiceName 'UsoSvc' -ConfigFile $ServicesConfig -VDIState "Default"
+Write-Output "Setting the 'Volume Shadow Copy Service' in file to 'Default'."
+Update-ServiceConfigurationJSON -ServiceName 'VSS' -ConfigFile $ServicesConfig -VDIState "Default"
 # DefaultUserSettings.txt update
 $TextFile = "$scriptPath\$WindowsVersion\ConfigurationFiles\DefaultUserSettings.txt"
 If (Test-Path $TextFile) {
@@ -91,4 +91,3 @@ Write-Output 'Cleaning up from customization scripts.'
 Write-Output "Removing '$BuildDir'."
 Remove-Item -Path $BuildDir\* -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -Path $BuildDir -Recurse -Force -ErrorAction SilentlyContinue
-# This is some change
