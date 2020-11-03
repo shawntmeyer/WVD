@@ -898,6 +898,8 @@ Function Invoke-ImageCustomization {
 
         $dirTemplates = "$PSScriptRoot\Edge\Templates"
 
+        Write-Log -Message "Disabling Edge Desktop shortcut creation via policy."
+        Update-LocalGPOTextFile -scope 'Computer' -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue 'CreateDesktopShortcutDefault' -RegistryType DWORD -RegistryData 0
         Write-Log -message "Now downloading latest Edge installer and Administrative Templates."
 
         $EdgeUpdatesJSON = Invoke-WebRequest -Uri $EdgeUpdatesAPIURL -UseBasicParsing
@@ -928,7 +930,7 @@ Function Invoke-ImageCustomization {
             Write-Log -Message "Now disabling Edge Automatic Updates"
             Update-LocalGPOTextFile -scope 'Computer' -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue 'UpdateDefault' -RegistryType DWORD -RegistryData 0
         }
-     
+        Invoke-LGPO -SearchTerm "$Script:Section"
         $installer = "msiexec.exe"
         Write-Log -message "Starting installation of Microsoft Edge Enterprise."
         $Arguments = "/i `"$msifile`" /q" 
