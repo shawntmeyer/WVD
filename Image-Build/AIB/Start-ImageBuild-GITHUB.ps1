@@ -128,7 +128,7 @@ Else {
     Write-Output "Module found."
 }
 Write-Output "Downloading Azure Image Builder JSON template from repo."
-$templateUrl="https://raw.githubusercontent.com/shawntmeyer/WVD/master/Image-Build/AIB/ImageBuilder.json"
+$templateUrl="https://raw.githubusercontent.com/shawntmeyer/WVD/master/Image-Build/AIB/ImageBuilder-GITHUB.json"
 $templateFilePath = "$env:Temp\armTemplateWinSIG.json"
 
 Invoke-WebRequest -Uri $templateUrl -OutFile $templateFilePath -UseBasicParsing

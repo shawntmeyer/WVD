@@ -50,7 +50,7 @@
                     {
                         "type": "PowerShell",
                         "name": "InvokeAIBImageCustomizationScript",
-                        "scriptUri": "https://raw.githubusercontent.com/shawntmeyer/WVD/master/Image-Build/AIB/Invoke-AIBImageCustomization.ps1"
+                        "scriptUri": "https://raw.githubusercontent.com/shawntmeyer/WVD/master/Image-Build/AIB/Invoke-AIBImageCustomization-GITHUB.ps1"
                     },            
                     {
                         "type": "WindowsUpdate",
