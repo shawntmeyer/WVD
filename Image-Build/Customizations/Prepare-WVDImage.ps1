@@ -957,6 +957,9 @@ Function Invoke-ImageCustomization {
         & "$PSScriptRoot\RemoveApps\Remove-Apps.ps1"
         $Script:Section = 'Start Menu'
         $Destination = "$env:SystemDrive\Users\Default\AppData\Local\Microsoft\Windows\Shell\Layoutmodification.xml"
+        Write-Log -message "Setting 'SpecialRoamingOverride' Registry Key per 'https://docs.microsoft.com/en-us/windows-server/storage/folder-redirection/deploy-roaming-user-profiles#step-7-optionally-specify-a-start-layout-for-windows-10-pcs'"
+        Set-RegistryValue -Key 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer' -Name SpecialRoamingOverrideAllowed -Value 1 -Type DWord
+        Write-Log -message "Replacing default Start Menu layout with custom layoutmodification file due to app removal."
         If ($Office365Install) {
             $LayoutFile = "$PSScriptRoot\StartMenu\StartLayout-Office.xml"
             If (Test-Path $LayoutFile) {
