@@ -43,7 +43,7 @@
                     "type": "PlatformImage",
                     "publisher": "MicrosoftWindowsDesktop",
                     "offer": "Windows-10",
-                    "sku": "20H1-EVD",
+                    "sku": "20H2-EVD",
                     "version": "latest"                
                 },
                 "customize": [
@@ -51,13 +51,7 @@
                         "type": "PowerShell",
                         "name": "InvokeAIBImageCustomizationScript",
                         "scriptUri": "https://raw.githubusercontent.com/shawntmeyer/WVD/master/Image-Build/AIB/Invoke-AIBImageCustomization.ps1"
-                    },
-                    {
-                        "type": "WindowsRestart",
-                        "restartCommand": "shutdown /r /f /t 15", 
-                        "restartCheckCommand": "",
-                        "restartTimeout": "5m"
-                    },               
+                    },            
                     {
                         "type": "WindowsUpdate",
                         "searchCriteria": "IsInstalled=0",
@@ -69,7 +63,7 @@
                     },
                     {
                         "type": "WindowsRestart",
-                        "restartCommand": "shutdown /r /f /t 15", 
+                        "restartCommand": "shutdown /r /f /t 0", 
                         "restartCheckCommand": "",
                         "restartTimeout": "5m"
                     }
