@@ -87,9 +87,9 @@ Write-Output "Completed $WVDOptimizeScriptName."
 
 #Section Install App Y
 Start-Sleep 5
-Write-Output "Adding the /mode:VM switch to the sysprep command line in the deprovisioning script."
 $DeprovisioningScript = "$env:SystemDrive\DeprovisioningScript.ps1"
 If (Test-Path $DeprovisioningScript) {
+    Write-Output "Adding the /mode:VM switch to the sysprep command line in the deprovisioning script."
     (Get-Content $DeprovisioningScript) | ForEach-Object { if ($_ -like '*System32\sysprep\sysprep.exe *') { $_ -replace "$_", "$_ /mode:vm" } else { $_ } } | Set-Content $DeprovisioningScript
 }
 Write-Output 'Cleaning up from customization scripts.'
