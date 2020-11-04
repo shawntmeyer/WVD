@@ -830,6 +830,15 @@ Function Invoke-ImageCustomization {
         Write-Log -message "Running 'msiexec.exe $Arguments'"
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "'msiexec.exe' exited with code [$($Installer.ExitCode)]."
+
+        # Create run key in default user hive to delete Teams Shortcuts. Look to delete this later.
+        Reg LOAD HKLM\DefaultUser "$env:SystemDrive\Users\Default User\NtUser.dat"
+        $Key = "HKLM:\DefaultUser\Software\Microsoft\Windows\CurrentVersion\Run"
+        $ValueName = "Delete_Teams_Shortcuts"
+        $Value = "Powershell.exe -NoProfile -WindowStyle Hidden -command `"& {`$Desktop=[environment]::GetFolderPath('Desktop');Remove-Item -Path $Desktop\* -filter 'Microsoft Teams*.*'}`""
+        Set-RegistryValue -Key $Key -Name $ValueName -Value $Value -Type 'String'
+        Reg Unload HKLM\DefaultUser
+        
         Write-Log -message "Completed $Script:Section Section."
     }
 
@@ -960,7 +969,7 @@ Function Invoke-ImageCustomization {
         $Script:Section = 'Start Menu'
         $Destination = "$env:SystemDrive\Users\Default\AppData\Local\Microsoft\Windows\Shell\Layoutmodification.xml"
         Write-Log -message "Setting 'SpecialRoamingOverride' Registry Key per 'https://docs.microsoft.com/en-us/windows-server/storage/folder-redirection/deploy-roaming-user-profiles#step-7-optionally-specify-a-start-layout-for-windows-10-pcs'"
-        Set-RegistryValue -Key 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer' -Name SpecialRoamingOverrideAllowed -Value 1 -Type DWord
+        Set-RegistryValue -Key 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer' -Name 'SpecialRoamingOverrideAllowed' -Value '1' -Type 'DWord'
         Write-Log -message "Replacing default Start Menu layout with custom layoutmodification file due to app removal."
         If ($Office365Install) {
             $LayoutFile = "$PSScriptRoot\StartMenu\StartLayout-Office.xml"
@@ -993,11 +1002,10 @@ Function Invoke-ImageCustomization {
     }
     Write-Log -message "Enabling Time Zone Redirection from Client to Session Host."
     Update-LocalGPOTextFile -scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -RegistryValue 'fEnableTimeZoneRedirection' -RegistryType 'DWord' -RegistryData 1
-
     Write-Log -message "Disabling Storage Sense GPO"
-
     Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'Software\Policies\Microsoft\Windows\StorageSense' -RegistryValue 'AllowStorageSenseGlobal' -RegistryType 'DWord' -RegistryData 0
-
+    Write-Log -message "Allow Telemetry in Feedback Hub for Windows 10 Multi-Session."
+    Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Windows\DataCollection' -RegistryValue 'AllowTelemetry' -RegistryType 'DWord' -RegistryData 3
     # Fix issues with Doctor Watson Crashes
     # List of Registry Values from https://docs.microsoft.com/en-us/windows/win32/wer/wer-settings
     Write-Log -Message "Removing Corporate Windows Error Reporting Server if set in registry."
