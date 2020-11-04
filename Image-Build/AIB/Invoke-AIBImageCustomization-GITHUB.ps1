@@ -43,7 +43,7 @@ Write-Output "Now calling 'Prepare-WVDImage.ps1'"
 # & "$ScriptPath\Prepare-WVDImage.ps1" -RemoveApps $False -Office365Install $Office365Install
 & "$ScriptPath\Prepare-WVDImage.ps1" -Office365Install $Office365Install
 Write-Output "Finished 'Prepare-WVDImage.ps1'."
-<#-----Removing for troubleshooting
+
 # Download Virtual Desktop Optimization Tool from the Virtual Desktop Team GitHub Repo
 $WVDOptimizeURL = 'https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool/archive/master.zip'
 $WVDOptimizeZIP = "$BuildDir\Windows_10_VDI_Optimize-master.zip"
@@ -84,7 +84,7 @@ Write-Output "Removing the possibly invasive disk cleanup routine starting at c:
 Write-Output "Now calling '$WVDOptimizeScriptName'."
 & "$WVDOptimizeScriptFile" -WindowsVersion $WindowsVersion -Verbose
 Write-Output "Completed $WVDOptimizeScriptName."
----------------------------##>
+
 #Section Install App Y
 Start-Sleep 5
 Write-Output "Adding the /mode:VM switch to the sysprep command line in the deprovisioning script."
