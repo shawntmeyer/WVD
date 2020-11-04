@@ -833,13 +833,15 @@ Function Invoke-ImageCustomization {
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "'msiexec.exe' exited with code [$($Installer.ExitCode)]."
 
-        # Create run key in default user hive to delete Teams Shortcuts. Look to delete this later.
+        <# Create run key in default user hive to delete Teams Shortcuts. Look to delete this later.
         Reg LOAD HKLM\DefaultUser "$env:SystemDrive\Users\Default User\NtUser.dat"
         $Key = "HKLM:\DefaultUser\Software\Microsoft\Windows\CurrentVersion\Run"
         $ValueName = "Delete_Teams_Shortcuts"
-        $Value = "Powershell.exe -NoProfile -WindowStyle Hidden -command `"& {`$Desktop=[environment]::GetFolderPath('Desktop');Remove-Item -Path $Desktop\* -filter 'Microsoft Teams*.*'}`""
+        $Value = "Powershell.exe -NoProfile -WindowStyle Hidden -command `"& {`$Desktop=[environment]::GetFolderPath('Desktop');Remove-Item -Path `$Desktop\* -filter 'Microsoft Teams*.*'}`""
         Set-RegistryValue -Key $Key -Name $ValueName -Value $Value -Type 'String'
         Reg Unload HKLM\DefaultUser
+        
+        #>
         
         Write-Log -message "Completed $Script:Section Section."
     }
