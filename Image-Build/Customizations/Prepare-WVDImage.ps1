@@ -769,8 +769,10 @@ Function Invoke-ImageCustomization {
                 $null = Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
             }
         }
-
-        Set-RegistryValue -Key "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name OneDrive -Value "C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe /background" -Type String
+        Write-Log -message "Now configuring OneDrive to start in the background for each user."
+        Set-RegistryValue -Key "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name 'OneDrive' -Value '"C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe" /background' -Type String
+        Write-Log -message "Now configuring OneDrive to start in the background when apps accessed through Remote App."
+        Set-RegistryValue -Key "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\RailRunonce" -Name 'OneDrive' -Value '"C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe" /background' -Type String
         Write-Log -Message "Now Configuring the Update Ring to Production"
         Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'GPOSetUpdateRing' -RegistryType DWORD -RegistryData 5
         Write-Log -Message "Now Configuring OneDrive to automatically sign-in with logged on user credentials."
