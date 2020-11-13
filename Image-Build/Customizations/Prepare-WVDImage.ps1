@@ -635,7 +635,6 @@ Function Invoke-ImageCustomization {
 
         $dirOffice = "$PSScriptRoot\Office365"
         $OfficeDeploymentToolExe = "$DirOffice\OfficeDeploymentTool.exe"
-        $O365Setup = "$DirOffice\setup.exe"
         Write-Log -Message "Starting script section: `"$Script:Section`"."
         Write-Log -Message "Downloading Office Deployment Tool and extracting setup.exe"
         $ODTDownloadUrl = Get-InternetUrl -url $O365DepToolWebUrl -searchstring "OfficeDeploymentTool"
