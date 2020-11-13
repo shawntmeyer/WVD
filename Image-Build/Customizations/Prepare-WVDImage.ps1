@@ -643,6 +643,7 @@ Function Invoke-ImageCustomization {
         Write-Log -Message "Extracting 'setup.exe' from Office Deployment Tool."
         $null = Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -Wait
         Write-Log -Message "Downloading, installing and configuring Office 365 per '$ref'."
+        $O365Setup = (Get-ChildItem -Path $DirOffice -filter 'setup*.exe').FullName
         $Installer = Start-Process -FilePath "$O365Setup" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru 
         Write-Log -message "Setup.exe exited with code [$($Installer.ExitCode)]"
         Write-Log -message "Downloading the latest Office 365 ADMX files."
@@ -806,6 +807,9 @@ Function Invoke-ImageCustomization {
         Write-Log -Message "Downloading the latest Websocket Service Installer."
         $WebSocketMSI = "$PSScriptRoot\Websocket.msi"
         $WebSocketUrl = Get-InternetUrl -Url $WebSocketWebUrl -searchstring "WebSocket Service"
+        If (!$WebSocketUrl) {
+            $WebSocketUrl = Get-InternetUrl -Url $WebSocketWebUrl -searchstring "Remote Desktop WebRTC"
+        }
         Get-InternetFile -url $WebSocketUrl -outputfile $WebSocketMSI
 
         Write-Log -Message "Now downloading the latest Teams 64-bit installer."
