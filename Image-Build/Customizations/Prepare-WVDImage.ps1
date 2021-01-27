@@ -99,12 +99,12 @@ If (Test-Path "$Script:LogDir\$ScriptName.log") { Remove-Item "$Script:LogDir\$S
 If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -Recurse -Force }
 
 #Update URLs with new releases
-[uri]$O365DepToolWebUrl = 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=49117'
+[uri]$O365DepToolUrl = 'https://www.microsoft.com/en-us/download/Confirmation.aspx?id=49117'
 [uri]$O365TemplatesWebUrl = 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=49030'
 [uri]$OneDriveUrl = "https://go.microsoft.com/fwlink/p/?linkid=2121808"
 [uri]$VSRedistUrl = "https://aka.ms/vs/16/release/vc_redist.x64.exe"
 [uri]$WebSocketWebUrl = "https://docs.microsoft.com/en-us/azure/virtual-desktop/teams-on-wvd"
-[uri]$TeamsWebUrl = "https://docs.microsoft.com/en-us/microsoftteams/teams-for-vdi"
+[uri]$TeamsUrl = "https://teams.microsoft.com/downloads/desktopurl?env=production&plat=windows&arch=x64&managedInstaller=true&download=true"
 [uri]$FSLogixUrl = "https://aka.ms/fslogix_download"
 [uri]$EdgeUpdatesAPIURL = "https://edgeupdates.microsoft.com/api/products?view=enterprise"
 #endregion
@@ -637,8 +637,7 @@ Function Invoke-ImageCustomization {
         $OfficeDeploymentToolExe = "$DirOffice\OfficeDeploymentTool.exe"
         Write-Log -Message "Starting script section: `"$Script:Section`"."
         Write-Log -Message "Downloading Office Deployment Tool and extracting setup.exe"
-        $ODTDownloadUrl = Get-InternetUrl -url $O365DepToolWebUrl -searchstring "OfficeDeploymentTool"
-        Get-InternetFile -url $ODTDownloadUrl -outputfile $OfficeDeploymentToolExe
+        Get-InternetFile -url $O365DepToolUrl -outputfile $OfficeDeploymentToolExe
         Write-Log -Message "Extracting 'setup.exe' from Office Deployment Tool."
         $null = Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -Wait
         Write-Log -Message "Downloading, installing and configuring Office 365 per '$ref'."
@@ -646,7 +645,7 @@ Function Invoke-ImageCustomization {
         $Installer = Start-Process -FilePath "$O365Setup" -ArgumentList "/configure `"$dirOffice\Configuration.xml`"" -Wait -PassThru 
         Write-Log -message "Setup.exe exited with code [$($Installer.ExitCode)]"
         Write-Log -message "Downloading the latest Office 365 ADMX files."
-        [string]$dirTemplates = Join-Path -Path $dirOffice -ChildPath 'Templates'
+        [string]$DirTemplates = Join-Path -Path $DirOffice -ChildPath 'Templates'
         If (-not (Test-Path $DirTemplates)) {
             $null = New-Item -Path $DirOffice -Name "Templates" -ItemType Directory -Force
         }
@@ -654,10 +653,10 @@ Function Invoke-ImageCustomization {
         $O365TemplatesUrl = Get-InternetUrl -Url $O365TemplatesWebUrl -searchstring "AdminTemplates_x64"
         Get-InternetFile -url $O365TemplatesUrl -outputfile $O365TemplatesExe
         Write-Log -Message "Extracting the templates to '$DirTemplates'."
-        $null = Start-Process -FilePath $O365TemplatesExe -ArgumentList "/extract:$dirTemplates /quiet" -Wait -PassThru
+        $null = Start-Process -FilePath $O365TemplatesExe -ArgumentList "/extract:$DirTemplates /quiet" -Wait -PassThru
         Write-Log -message "Copying ADMX and ADML files to PolicyDefinitions folder."
-        $null = Copy-Item -Path "$DirTemplates\admx\*.admx" -Destination "$env:WINDIR\PolicyDefinitions\" -Force
-        $null = Copy-Item -Path "$DirTemplates\admx\en-us\*.adml" -Destination "$env:WINDIR\PolicyDefinitions\en-us" -force -PassThru
+        $null = Get-ChildItem -Path $DirTemplates -File -Recurse -Filter '*.admx' | ForEach-Object { Copy-Item -Path $_.FullName -Destination "$env:WINDIR\PolicyDefinitions\" -Force }
+        $null = Get-ChildItem -Path $DirTemplates -Directory -Recurse | Where-Object {$_.Name -eq 'en-us'} | Get-ChildItem -File -recurse -filter '*.adml' | ForEach-Object { Copy-Item -Path $_.FullName -Destination "$env:WINDIR\PolicyDefinitions\en-us\" -Force }
 
         Write-Log -Message "Update User LGPO registry text file."
         # Turn off insider notifications
@@ -757,17 +756,18 @@ Function Invoke-ImageCustomization {
 
         $InstallDir = "${env:ProgramFiles(x86)}\Microsoft OneDrive"
         $OnedriveVersion = (Get-ItemProperty -Path "$installDir\onedrive.exe").VersionInfo.ProductVersion
-
-        If (Test-Path $installDir\$onedriveversion) {
-            $ADMX = (Get-ChildItem "$InstallDir\$OneDriveVersion" -include '*.admx' -recurse)
-            ForEach ($file in $ADMX) {
-                $null = Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions" -Force
+        
+        If (Test-Path -Path "$installDir\$onedriveversion") {
+            $null = Get-ChildItem -Path "$installDir\$onedriveversion" -File -Recurse -Filter '*.admx' | ForEach-Object { Copy-Item -Path $_.FullName -Destination "$env:WINDIR\PolicyDefinitions\" -Force }
+            $ADML = (get-childitem "$InstallDir\$OneDriveVersion" -file -filter '*.adml' -recurse | Where-object { $_.Directory -like '*adm' })
+            If ($null -ne $ADML) {
+                ForEach ($file in $ADML) {
+                    $null = Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions\en-us\" -Force
+                }
             }
-
-            $ADML = (get-childitem "$InstallDir\$OneDriveVersion" -include '*.adml' -recurse | Where-object { $_.Directory -like '*adm' })
-            ForEach ($file in $ADML) {
-                $null = Copy-Item -Path $file.FullName -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
-            }
+            Else {
+                $null = Get-ChildItem -Path "$InstallDir\$OneDriveVersion" -Directory -Recurse | Where-Object {$_.Name -eq 'en-us'} | Get-ChildItem -File -recurse -filter '*.adml' | ForEach-Object { Copy-Item -Path $_.FullName -Destination "$env:WINDIR\PolicyDefinitions\en-us\" -Force }
+            }    
         }
         Write-Log -message "Now configuring OneDrive to start in the background for each user."
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name 'OneDrive' -Value '"C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe" /background' -Type String
@@ -813,7 +813,6 @@ Function Invoke-ImageCustomization {
 
         Write-Log -Message "Now downloading the latest Teams 64-bit installer."
         $TeamsMSI = "$PSScriptRoot\Teams_Windows_x64.msi"
-        $TeamsUrl = Get-InternetUrl -URL $TeamsWebUrl -searchstring "Teams_windows_x64.msi"
         Get-InternetFile -url $TeamsUrl -outputfile $TeamsMSI
  
         Write-Log -message "Installing the latest VS Redistributables"
@@ -931,14 +930,8 @@ Function Invoke-ImageCustomization {
         $msifile = "$PSScriptRoot\MicrosoftEdgeEnteprisex64.msi"
         Get-InternetFile -url $EdgeUrl -outputfile $msifile
         Write-Log -message "Now copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders."
-        $admx = Get-ChildItem "$destpath" -Filter "*.admx" -Recurse
-        $adml = Get-ChildItem "$destpath" -filter "*.adml" -Recurse
-        ForEach ($file in $admx) {
-            $null = Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions" -Force
-        }
-        ForEach ($file in $adml) {
-            $null = Copy-item -Path $file.fullname -Destination "$env:Windir\PolicyDefinitions\en-us" -Force
-        }
+        $null = Get-ChildItem -Path "$destpath" -File -Recurse -Filter '*.admx' | ForEach-Object { Copy-Item -Path $_.FullName -Destination "$env:WINDIR\PolicyDefinitions\" -Force }
+        $null = Get-ChildItem -Path "$destpath" -Directory -Recurse | Where-Object {$_.Name -eq 'en-us'} | Get-ChildItem -File -recurse -filter '*.adml' | ForEach-Object { Copy-Item -Path $_.FullName -Destination "$env:WINDIR\PolicyDefinitions\en-us\" -Force }
         Write-Log -Message "Disabling Edge Desktop shortcut creation via policy."
         Update-LocalGPOTextFile -scope 'Computer' -RegistryKeyPath 'Software\Policies\Microsoft\EdgeUpdate' -RegistryValue 'CreateDesktopShortcutDefault' -RegistryType DWORD -RegistryData 0
         If ($DisableUpdates) {
