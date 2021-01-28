@@ -99,7 +99,7 @@ If (Test-Path "$Script:LogDir\$ScriptName.log") { Remove-Item "$Script:LogDir\$S
 If (Test-Path "$Script:LogDir\LGPO") { Remove-Item -Path "$Script:LogDir\LGPO" -Recurse -Force }
 
 #Update URLs with new releases
-[uri]$O365DepToolUrl = 'https://www.microsoft.com/en-us/download/Confirmation.aspx?id=49117'
+[uri]$O365DepToolWebUrl = 'https://www.microsoft.com/en-us/download/Confirmation.aspx?id=49117'
 [uri]$O365TemplatesWebUrl = 'https://www.microsoft.com/en-us/download/confirmation.aspx?id=49030'
 [uri]$OneDriveUrl = "https://go.microsoft.com/fwlink/p/?linkid=2121808"
 [uri]$VSRedistUrl = "https://aka.ms/vs/16/release/vc_redist.x64.exe"
@@ -637,6 +637,7 @@ Function Invoke-ImageCustomization {
         $OfficeDeploymentToolExe = "$DirOffice\OfficeDeploymentTool.exe"
         Write-Log -Message "Starting script section: `"$Script:Section`"."
         Write-Log -Message "Downloading Office Deployment Tool and extracting setup.exe"
+        $O365DepToolUrl = Get-InternetUrl -url $O365DepToolWebUrl -searchstring 'OfficeDeploymentTool'
         Get-InternetFile -url $O365DepToolUrl -outputfile $OfficeDeploymentToolExe
         Write-Log -Message "Extracting 'setup.exe' from Office Deployment Tool."
         $null = Start-Process -FilePath $OfficeDeploymentToolExe -ArgumentList "/Extract:$DirOffice /quiet" -Wait
