@@ -1,0 +1,128 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",    
+    "parameters": {
+        "imageTemplateName": {
+            "type": "string"
+        },
+        "api-version": {
+            "type": "string"
+        },
+        "svclocation": {
+            "type": "string"
+        }
+    },
+    
+    "variables": {
+    },
+
+    "resources": [
+        {
+            "name": "[parameters('imageTemplateName')]",
+            "type": "Microsoft.VirtualMachineImages/imageTemplates",
+            "apiVersion": "[parameters('api-version')]",
+            "location": "[parameters('svclocation')]",
+            "dependsOn": [],
+            "tags": {
+                "imagebuilderTemplate": "AzureImageBuilderSIG",
+                "userIdentity": "enabled"
+            },
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "<imgBuilderId>": {}
+                }
+            },
+            "properties": {
+                "buildTimeoutInMinutes" : 180,
+                "vmProfile": {
+                    "vmSize": "Standard_D2_v3",
+                    "osDiskSizeGB": 127
+                },        
+                "source": {
+                    "type": "PlatformImage",
+                    "publisher": "MicrosoftWindowsDesktop",
+                    "offer": "Windows-10",
+                    "sku": "20H2-EVD",
+                    "version": "latest"                
+                },
+                "customize": [
+                    {
+                        "type": "PowerShell",
+                        "name": "Create_Build_Dir",
+                        "inline": [
+                            "New-Item -Path '<BuildDir>' -ItemType Directory -Force"
+                        ],
+                        "runElevated": true,
+                        "runAsSystem": true
+                    },
+                    {
+                        "type": "PowerShell",
+                        "name": "InvokeImageCustomizationScript",
+                        "scriptUri": "https://<StorageAccount>.blob.core.windows.net/<Container>/<MasterScriptName>"
+                    },            
+                    {
+                        "type": "WindowsUpdate",
+                        "searchCriteria": "IsInstalled=0",
+                        "filters": [
+                            "exclude:$_.Title -like '*Preview*'",
+                            "include:$true"
+                        ],
+                        "updateLimit": 40
+                    },
+                    {
+                        "type": "PowerShell",
+                        "name": "CleanupImage",
+                        "inline": [
+                            "Write-Output 'Deleting Build Artifacts Directory'.",
+                            "Remove-Item -Path '<BuildDir>\\*' -Recurse -ErrorAction SilentlyContinue",
+                            "Remove-Item -Path '<BuildDir>' -Recurse -ErrorAction SilentlyContinue",
+                            "Write-Output 'Deleting Windows Update downloads.'",
+                            "Get-Service -DisplayName 'Windows Update' | Stop-Service -Force",
+                            "Remove-Item -Path 'c:\\Windows\\SoftwareDistribution' -Recurse -Force -ErrorAction SilentlyContinue",
+                            "Write-Output 'Cleaning out c:\\windows\\temp'",
+                            "Get-ChildItem -Path 'c:\\Windows\\Temp' -File -Exclude '*.ps1' -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue",
+                            "Get-ChildItem -Path 'c:\\Windows\\Temp' -Directory -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue",
+                            "Write-Output 'Removing .tmp, .etl, .evtx, thumbcache*.db files not in use'",
+                            "Get-ChildItem -Path c:\\ -Include *.tmp, *.dmp, *.etl, *.evtx, thumbcache*.db -File -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -ErrorAction SilentlyContinue",
+                            "Write-Output 'Cleaning up WER report archive.'",
+                            "Remove-Item -Path $env:ProgramData\\Microsoft\\Windows\\WER\\Temp\\* -Recurse -Force -ErrorAction SilentlyContinue",
+                            "Remove-Item -Path $env:ProgramData\\Microsoft\\Windows\\WER\\ReportArchive\\* -Recurse -Force -ErrorAction SilentlyContinue",
+                            "Remove-Item -Path $env:ProgramData\\Microsoft\\Windows\\WER\\ReportQueue\\* -Recurse -Force -ErrorAction SilentlyContinue",
+                            "Write-Output 'Removing Retail Demo content.'",
+                            "Get-ChildItem -Path $env:ProgramData\\Microsoft\\Windows\\RetailDemo\\* -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -ErrorAction SilentlyContinue",
+                            "Write-Output 'Clearing BranchCache.'",
+                            "Clear-BCCache -Force -ErrorAction SilentlyContinue",
+                            "Write-Output 'Deleting the Delivery Optimization Cache.'",
+                            "Delete-DeliveryOptimizationCache -Force",
+                            "Write-Output 'Emptying all Recycle Bins.'",
+                            "Clear-RecycleBin -Force -ErrorAction SilentlyContinue"
+                        ],
+                        "runElevated": true,
+                        "runAsSystem": true
+                    },
+                    {
+                        "type": "WindowsRestart",
+                        "restartCommand": "shutdown /r /f /t 0", 
+                        "restartCheckCommand": "",
+                        "restartTimeout": "5m"
+                    }
+                ],
+                "distribute": [
+                    {   
+                        "type": "SharedImage",
+                        "galleryImageId": "/subscriptions/<SubscriptionID>/resourceGroups/<RgName>/providers/Microsoft.Compute/galleries/<SharedImageGalName>/images/<ImageDefName>",
+                        "runOutputName": "<RunOutputName>",
+                        "artifactTags": {
+                            "source": "azureVmImageBuilder",
+                            "baseosimg": "windows10MS"
+                        },
+                        "replicationRegions": [
+                        "<Region1>"
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}
