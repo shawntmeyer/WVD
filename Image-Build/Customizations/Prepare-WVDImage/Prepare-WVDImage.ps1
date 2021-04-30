@@ -836,6 +836,21 @@ Function Invoke-ImageCustomization {
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "'msiexec.exe' exited with code [$($Installer.ExitCode)]."
 
+        $links = get-childitem -path "$env:SystemDrive\Users\Public\Desktop" -include '*Teams.lnk'
+        ForEach ($link in $links) {
+            remove-item -path $link.FullName -Force -ErrorAction SilentlyContinue
+        }
+        
+        $RuleName = 'MicrosoftTeams'
+        $RuleDisplayName = 'Microsoft Teams'
+        $Program = "${Env:ProgramFiles(x86)}\microsoft\teams\current\teams.exe" 
+        If ( Get-NetFirewallRule | Where-Object { $_.Name -eq "$RuleName" } ) {
+            Set-NetFirewallRule -Name $RuleName -NewDisplayName $RuleDisplayName -Profile Any -Action Allow -Program $Program
+        }
+        Else {
+            New-NetFirewallRule -Name $RuleName -DisplayName $RuleDisplayName -Profile Any -Action Allow -Program $Program
+        }
+
         <# Create run key in default user hive to delete Teams Shortcuts. Look to delete this later.
         Reg LOAD HKLM\DefaultUser "$env:SystemDrive\Users\Default User\NtUser.dat"
         $Key = "HKLM:\DefaultUser\Software\Microsoft\Windows\CurrentVersion\Run"
