@@ -42,7 +42,8 @@ Write-Output "*** Complete: Loading Supporting Functions ***"
 
 #region Install/Import Required Modules
 Write-Output "*** Start: Installing and Importing Required Powershell Modules ***"
-Write-Output "Checking to see if minimum version of 'Az' Module is installed."
+
+Write-Output "Checking to see if minimum version of 'Az' module is installed."
 If (!(Get-InstalledModule -name Az -MinimumVersion 5.8.0 -ErrorAction SilentlyContinue)) {
     Write-Output "'Az' module needs to be installed or updated."
     Install-Module -Name Az -AllowClobber -Force
@@ -51,28 +52,34 @@ Else {
     Write-Output "Minimum version of 'Az' module is installed."
 }
 
+Write-Output "Checking to see if 'Az.Accounts' module is installed."
 If (!(Get-Module -name Az.Accounts -ErrorAction SilentlyContinue)) {
     Import-Module Az.Accounts -Force
 }
+Else {
+    Write-Output "'Az.Accounts' module is installed."
+}
 
 Write-Output "Verifying that the 'Az.ManagedServiceIdentity' powershell module is installed."
-If (!(Get-Module -Name Az.ManagedServiceIdentity -ErrorAction SilentlyContinue)) {
-    Write-Output "Module not found. Installing."
+If (!(Get-Module -name Az.ManagedServiceIdentity -ErrorAction SilentlyContinue)) {
+    Write-Output "'Az.ManagedServiceIdentity' module not found. Installing."
+    Install-Module -Name Az.ManagedServiceIdentity -AllowClobber -Force
     Import-Module -Name Az.ManagedServiceIdentity -Force
 }
 Else {
-    Write-Output "Module already imported."
+    Write-Output "'Az.ManagedServiceIdentity' module is already installed."
 }
 
 Write-Output "Verifying that 'AZ.ImageBuilder' powershell module is installed."
 If (!(Get-Module -Name Az.ImageBuilder -ErrorAction SilentlyContinue)) {
-    Write-Output "Module not found. Installing."
+    Write-Output "'Az.ImageBuilder' module not found. Installing."
     Install-Module Az.ImageBuilder -Force -AllowClobber
     Import-Module Az.ImageBuilder -Force
 }
 Else {
     Write-Output "Module already installed."
 }
+
 Write-Output "*** Complete: Installing and Importing Required Powershell Modules ***"
 #endregion
 
@@ -95,9 +102,13 @@ Write-Output "*** Complete: Azure Logon Context ***"
 
 #region create resource group
 Write-Output "*** Start: Resource Group ***"
+Write-Output "Checking for existing Resource Group."
 If (!(Get-AzResourceGroup -Name $imageResourceGroup -ErrorAction SilentlyContinue)) {
     Write-Output "Creating '$imageResourceGroup' resource group."
     New-AzResourceGroup -Name $imageResourceGroup -Location $location
+}
+Else {
+    Write-Output "Resource Group '$imageResourceGroup' already exists."
 }
 Write-Output "*** Complete: Resource Group ***"
 #endregion
@@ -107,14 +118,21 @@ Write-Output "*** Complete: Resource Group ***"
 Write-Output "*** Start: User Assigned Identity ***"
 Write-Output "Checking for User Assigned Identity '$identityName' in '$imageResourceGroup' resource group."
 $userIdentity = Get-AzUserAssignedIdentity | Where-Object { $_.Name -eq $identityName -and $_.ResourceGroupName -eq $imageResourceGroup }
+
 If (!($userIdentity)) {
     # create New identity
     Write-Output "Creating a new user assigned identity."
-    $userIdentity = New-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $identityName -ErrorAction Stop
+    New-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $identityName -ErrorAction Stop
+    Write-Output "Waiting for user assigned identity to be available."
+    do {
+        Start-Sleep -seconds 1
+    } until (Get-AzUserAssignedIdentity | Where-Object { $_.Name -eq $identityName -and $_.ResourceGroupName -eq $imageResourceGroup })
+    $userIdentity = Get-AzUserAssignedIdentity | Where-Object { $_.Name -eq $identityName -and $_.ResourceGroupName -eq $imageResourceGroup }
 }
 Else {
     Write-Output "Found User Assigned Identity"
 }
+
 $identityNameResourceId = $userIdentity.Id
 $identityNamePrincipalId = $userIdentity.PrincipalId
 Write-Output "*** Complete: User Assigned Identity ***"
@@ -153,6 +171,7 @@ If (!(Get-AzRoleAssignment -RoleDefinitionName $imageRoleDefName -objectID $iden
     Write-Output 'Role Assignment not found. Creating a new one.'
 
     Write-Output "Assigning role to '$identityName'."
+    Start-Sleep -seconds 5
     New-AzRoleAssignment -ObjectId $identityNamePrincipalId -RoleDefinitionName $imageRoleDefName -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup" -ErrorAction Stop
 }
 Else {
@@ -167,7 +186,7 @@ Write-Output "*** Complete: AIB Custom Role Assignment ***"
 Write-Output "*** Start: Image Customization Scripts Storage Account ***"
 $storageAccount = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $scriptsStorageAccount -ErrorAction SilentlyContinue
 If (!($storageAccount)) {
-    New-AzStorageAccount -Name $scriptsStorageAccount -ResourceGroupName $imageResourceGroup -Location (Get-AzResourceGroup -Name $imageResourceGroup).location -sku Standard_LRS -AllowBlobPublicAccess $false -EnableHttpsTrafficOnly $true -MinimumTlsVersion TLS1_2
+    New-AzStorageAccount -Name $scriptsStorageAccount -ResourceGroupName $imageResourceGroup -Location (Get-AzResourceGroup -Name $imageResourceGroup).location -sku Standard_LRS -EnableHttpsTrafficOnly $true -MinimumTlsVersion TLS1_2
     $storageAccount = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $scriptsStorageAccount -ErrorAction SilentlyContinue
 }
 
