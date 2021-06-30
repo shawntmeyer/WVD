@@ -54,6 +54,7 @@ Else {
 
 Write-Output "Checking to see if 'Az.Accounts' module is installed."
 If (!(Get-Module -name Az.Accounts -ErrorAction SilentlyContinue)) {
+    Write-Output "'Az.Account' module not found. Importing."
     Import-Module Az.Accounts -Force
 }
 Else {
@@ -62,7 +63,7 @@ Else {
 
 Write-Output "Verifying that the 'Az.ManagedServiceIdentity' powershell module is installed."
 If (!(Get-Module -name Az.ManagedServiceIdentity -ErrorAction SilentlyContinue)) {
-    Write-Output "'Az.ManagedServiceIdentity' module not found. Installing."
+    Write-Output "'Az.ManagedServiceIdentity' module not found. Installing and Importing."
     Install-Module -Name Az.ManagedServiceIdentity -AllowClobber -Force
     Import-Module -Name Az.ManagedServiceIdentity -Force
 }
@@ -72,12 +73,12 @@ Else {
 
 Write-Output "Verifying that 'AZ.ImageBuilder' powershell module is installed."
 If (!(Get-Module -Name Az.ImageBuilder -ErrorAction SilentlyContinue)) {
-    Write-Output "'Az.ImageBuilder' module not found. Installing."
+    Write-Output "'Az.ImageBuilder' module not found. Installing and Importing."
     Install-Module Az.ImageBuilder -Force -AllowClobber
     Import-Module Az.ImageBuilder -Force
 }
 Else {
-    Write-Output "Module already installed."
+    Write-Output "'Az.ImageBuilder' module is already installed."
 }
 
 Write-Output "*** Complete: Installing and Importing Required Powershell Modules ***"
@@ -121,16 +122,17 @@ $userIdentity = Get-AzUserAssignedIdentity | Where-Object { $_.Name -eq $identit
 
 If (!($userIdentity)) {
     # create New identity
-    Write-Output "Creating a new user assigned identity."
+    Write-Output "Creating a new user assigned identity: '$identityName'."
     New-AzUserAssignedIdentity -ResourceGroupName $imageResourceGroup -Name $identityName -ErrorAction Stop
-    Write-Output "Waiting for user assigned identity to be available."
+    Write-Output "Waiting for user assigned identity to be available via API."
     do {
         Start-Sleep -seconds 1
     } until (Get-AzUserAssignedIdentity | Where-Object { $_.Name -eq $identityName -and $_.ResourceGroupName -eq $imageResourceGroup })
+    Write-Output "User Assigned Identity now available via API."
     $userIdentity = Get-AzUserAssignedIdentity | Where-Object { $_.Name -eq $identityName -and $_.ResourceGroupName -eq $imageResourceGroup }
 }
 Else {
-    Write-Output "Found User Assigned Identity"
+    Write-Output "Found User Assigned Identity: '$identityName'."
 }
 
 $identityNameResourceId = $userIdentity.Id
@@ -154,11 +156,11 @@ If (!(Get-AzRoleDefinition -Name $imageRoleDefName -ErrorAction SilentlyContinue
 
     # create role definition
     New-AzRoleDefinition -InputFile "$tempFile" -ErrorAction Stop
-    Write-Output "Waiting for custom role definition to be available for assignment."
+    Write-Output "Waiting for custom role definition to be available for assignment via API."
     do {
         Start-Sleep -seconds 1
     } until (Get-AzRoleDefinition -Name $imageRoleDefName -ErrorAction SilentlyContinue)
-    Write-Output "'$imageRoleDefName' role definition available."
+    Write-Output "'$imageRoleDefName' role definition available via API."
     Remove-Item -Path $tempFile -Force
 }
 Else {
@@ -169,10 +171,15 @@ Write-Output "Checking for custom role assignment for '$identityName'."
 If (!(Get-AzRoleAssignment -RoleDefinitionName $imageRoleDefName -objectID $identityNamePrincipalId -ErrorAction SilentlyContinue)) {
     # grant role definition to image builder service principal
     Write-Output 'Role Assignment not found. Creating a new one.'
-
     Write-Output "Assigning role to '$identityName'."
-    Start-Sleep -seconds 5
-    New-AzRoleAssignment -ObjectId $identityNamePrincipalId -RoleDefinitionName $imageRoleDefName -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup" -ErrorAction Stop
+    Try {
+        New-AzRoleAssignment -ObjectId $identityNamePrincipalId -RoleDefinitionName $imageRoleDefName -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup"
+    }
+    Catch {
+        Write-Output "Pausing 5 seconds to work around timing issue with Role Assignments."
+        Start-Sleep -seconds 5
+        New-AzRoleAssignment -ObjectId $identityNamePrincipalId -RoleDefinitionName $imageRoleDefName -Scope "/subscriptions/$subscriptionID/resourceGroups/$imageResourceGroup" -ErrorAction Stop
+    }
 }
 Else {
     Write-Output "'$imageRoleDefName' Assignment Found."
@@ -301,7 +308,7 @@ Write-Output "*** Complete: Azure Image Builder Template ***"
 
 Write-Output "*** Start: AIB Template Submission to Service ***"
 Write-Output "Checking for existing image builder template named '$imageTemplateName'."
-If (Get-AZImageBuilderTemplate -ResourceGroupName $imageResourceGroup -Name $imageTemplateName -ErrorAction SilentlyContinue) {
+If (Get-AzImageBuilderTemplate -ResourceGroupName $imageResourceGroup -Name $imageTemplateName -ErrorAction SilentlyContinue) {
     Write-Output "Existing template found, must delete the template because they cannot be updated."
     Remove-AzImageBuilderTemplate -ResourceGroupName $imageResourceGroup -Name $imageTemplateName -ErrorAction Stop
 }
@@ -309,7 +316,7 @@ Else {
     Write-Output "Existing template not found."
 }
 Write-Output "Submitting Azure Image Builder template to service."
-New-AzResourceGroupDeployment -ResourceGroupName $imageResourceGroup -TemplateFile $tempFile -api-version "2019-05-01-preview" -imageTemplateName $imageTemplateName -svclocation $location -ErrorAction Stop
+New-AzResourceGroupDeployment -ResourceGroupName $imageResourceGroup -TemplateFile $tempFile -api-version "2020-02-14" -imageTemplateName $imageTemplateName -svclocation $location -ErrorAction Stop
 Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
 Write-Output "*** Complete: AIB Template Submission to Service ***"
 #endregion
@@ -320,10 +327,9 @@ Write-Output "*** Start: Invoke AIB Image Build ***"
 Write-Output "Pausing 5 secs to ensure that template is ready."
 start-sleep 5
 Write-Output "Starting Image Build"
-Invoke-AzResourceAction -ResourceName $imageTemplateName -ResourceGroupName $imageResourceGroup -ResourceType Microsoft.VirtualMachineImages/imageTemplates -ApiVersion "2019-05-01-preview" -Action Run -Force
+Invoke-AzResourceAction -ResourceName $imageTemplateName -ResourceGroupName $imageResourceGroup -ResourceType Microsoft.VirtualMachineImages/imageTemplates -ApiVersion "2020-02-14" -Action Run -Force
 Write-Output "*** Complete: Invoke AIB Image Build ***"
 
 #endregion
 
 Write-Output "----- Script Complete -----"
-#test
