@@ -10,9 +10,11 @@ $containerName = "scripts"
 $imageMasterScript = "Invoke-AIBImageCustomization.ps1"
 # AIB Image template
 $imageTemplateFilePath = "AzureImageBuilderTemplate.json"
-$imageTemplateName = "Win10MS"
+# Image Template Name, recommend keep it the same as the image definition name in the Shared Image Gallery.
+$imageTemplateName = "Windows10MS"
 # distribution properties object name (runOutput), i.e. this gives you the properties of the managed image on completion
-$runOutputName = "Win10-MS"
+# Recommend that you keep it same as image template name.
+$runOutputName = "Windows10MS"
 # Custom Role and User Assigned Identity
 $imageRoleDefName = "Azure Image Builder Custom Role"
 $identityName = "AIBUserIdentity"
