@@ -626,6 +626,8 @@ Function Invoke-ImageCustomization {
     If (-not(Test-Path "$env:WinDir\Logs\Software")) {
         $null = New-Item -Path $env:WinDir\Logs -Name Software -ItemType Directory -Force
     }
+    # Determine if MultiSession Image.
+    $isMultiSession = Get-WmiObject -Query "Select * from Win32_OperatingSystem where OperatingSystemSku = '125'"
 
     #region Office365
 
@@ -753,6 +755,11 @@ Function Invoke-ImageCustomization {
  
         Write-Log -message "The OneDriveSetup.exe install exited with code [$($Installer.ExitCode)]"
 
+        Write-Log -message "Now configuring OneDrive to start in the background for each user."
+        Set-RegistryValue -Key "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name 'OneDrive' -Value '"C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe" /background' -Type String
+        Write-Log -message "Now configuring OneDrive to start in the background when apps accessed through Remote App."
+        Set-RegistryValue -Key "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\RailRunonce" -Name 'OneDrive' -Value '"C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe" /background' -Type String
+
         Write-Log -message "Copying the latest Group Policy ADMX and ADML files to the Policy Definition Folders."
 
         $InstallDir = "${env:ProgramFiles(x86)}\Microsoft OneDrive"
@@ -770,19 +777,17 @@ Function Invoke-ImageCustomization {
                 $null = Get-ChildItem -Path "$InstallDir\$OneDriveVersion" -Directory -Recurse | Where-Object {$_.Name -eq 'en-us'} | Get-ChildItem -File -recurse -filter '*.adml' | ForEach-Object { Copy-Item -Path $_.FullName -Destination "$env:WINDIR\PolicyDefinitions\en-us\" -Force }
             }    
         }
-        Write-Log -message "Now configuring OneDrive to start in the background for each user."
-        Set-RegistryValue -Key "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name 'OneDrive' -Value '"C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe" /background' -Type String
-        Write-Log -message "Now configuring OneDrive to start in the background when apps accessed through Remote App."
-        Set-RegistryValue -Key "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\RailRunonce" -Name 'OneDrive' -Value '"C:\Program Files (x86)\Microsoft OneDrive\OneDrive.exe" /background' -Type String
+
         Write-Log -Message "Now Configuring the Update Ring to Production"
         Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'GPOSetUpdateRing' -RegistryType DWORD -RegistryData 5
-        Write-Log -Message "Now Configuring OneDrive to automatically sign-in with logged on user credentials."
-        Update-LocalGPOTextFile -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'SilentAccountConfig' -RegistryType DWord -RegistryData 1
-        Write-Log -Message "Enabling Files on Demand"
-        Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'FilesOnDemandEnabled' -RegistryType DWORD -RegistryData 1
         If ($AADTenantID -and $AADTenantID -ne '') {
+            Write-Log -Message "Now Configuring OneDrive to automatically sign-in with logged on user credentials."
+            Update-LocalGPOTextFile -scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'SilentAccountConfig' -RegistryType DWord -RegistryData 1
+            Write-Log -Message "Enabling Files on Demand"
+            Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\OneDrive' -RegistryValue 'FilesOnDemandEnabled' -RegistryType DWORD -RegistryData 1
             Write-Log -message "Applying OneDrive for Business Known Folder Move Silent Configuration Settings."
             Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue 'KFMSilentOptIn' -RegistryType String -RegistryData "$AADTenantID"
+            Update-LocalGPOTextFile -Scope Computer -RegistryKeyPath "SOFTWARE\Policies\Microsoft\OneDrive" -RegistryValue 'KFMBlockOptOut' -RegistryType DWORD -RegistryData 1
         }
         Invoke-LGPO -SearchTerm "$Script:Section"
         Write-Log -Message "Complete $Script:Section Section."
@@ -830,36 +835,40 @@ Function Invoke-ImageCustomization {
 
         Set-RegistryValue -Key "HKLM:\Software\Microsoft\Teams" -Name IsWVDEnvironment -Value 1 -Type DWord
 
-        Write-Log -message "Starting installation of Microsoft Teams for all users."
-        $Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1 ALLUSERS=1" 
+        If ($isMultiSession) {
+            Write-Log -message "Starting per-machine installation of Microsoft Teams."
+			$Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSER=1 ALLUSERS=1"
+		}
+        Else {
+            Write-Log -message "Starting allusers installation of Microsoft Teams installer."
+            $Arguments = "/i `"$TeamsMSI`" /l*v `"$env:WinDir\Logs\Software\Teams_MSI.log`" ALLUSERS=1" 
+        }
+       
         Write-Log -message "Running 'msiexec.exe $Arguments'"
         $Installer = Start-Process -FilePath "msiexec.exe" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "'msiexec.exe' exited with code [$($Installer.ExitCode)]."
 
-        $links = get-childitem -path "$env:SystemDrive\Users\Public\Desktop" -include '*Teams.lnk'
+        $links = get-childitem -path "$env:SystemDrive\Users\Public\Desktop" -filter '*Teams.lnk' -file
         ForEach ($link in $links) {
             remove-item -path $link.FullName -Force -ErrorAction SilentlyContinue
         }
-        
-        $RuleName = 'MicrosoftTeams'
-        $RuleDisplayName = 'Microsoft Teams'
-        $Program = "${Env:ProgramFiles(x86)}\microsoft\teams\current\teams.exe" 
-        If ( Get-NetFirewallRule | Where-Object { $_.Name -eq "$RuleName" } ) {
-            Set-NetFirewallRule -Name $RuleName -NewDisplayName $RuleDisplayName -Profile Any -Action Allow -Program $Program
-        }
-        Else {
-            New-NetFirewallRule -Name $RuleName -DisplayName $RuleDisplayName -Profile Any -Action Allow -Program $Program
+
+        If ( $isMultiSession ) {
+            Write-Log -Message "Creating new Firewall rule to allow Per-Machine Teams through the Windows Firewall."
+            $RuleName = 'MicrosoftTeams'
+            $RuleDisplayName = 'Microsoft Teams'
+            $Program = "${Env:ProgramFiles(x86)}\microsoft\teams\current\teams.exe" 
+            If ( Get-NetFirewallRule | Where-Object { $_.Name -eq "$RuleName" } ) {
+                Set-NetFirewallRule -Name $RuleName -NewDisplayName $RuleDisplayName -Profile Any -Action Allow -Program $Program
+            }
+            Else {
+                New-NetFirewallRule -Name $RuleName -DisplayName $RuleDisplayName -Profile Any -Action Allow -Program $Program
+            }
         }
 
-        <# Create run key in default user hive to delete Teams Shortcuts. Look to delete this later.
-        Reg LOAD HKLM\DefaultUser "$env:SystemDrive\Users\Default User\NtUser.dat"
-        $Key = "HKLM:\DefaultUser\Software\Microsoft\Windows\CurrentVersion\Run"
-        $ValueName = "Delete_Teams_Shortcuts"
-        $Value = "Powershell.exe -NoProfile -WindowStyle Hidden -command `"& {`$Desktop=[environment]::GetFolderPath('Desktop');Remove-Item -Path `$Desktop\* -filter 'Microsoft Teams*.*'}`""
-        Set-RegistryValue -Key $Key -Name $ValueName -Value $Value -Type 'String'
-        Reg Unload HKLM\DefaultUser
-        
-        #>
+        # Prevent Teams from launching after logon.
+        Update-LocalGPOTextFile -Scope 'User' -RegistryKeyPath 'SOFTWARE\Policies\Microsoft\Office\16.0\Teams' -RegistryValue 'PreventFirstLaunchAfterInstall' -RegistryType 'DWORD' -RegistryData 1
+        Invoke-LGPO -SearchTerm "$Script:Section"
         
         Write-Log -message "Completed $Script:Section Section."
     }
@@ -961,6 +970,11 @@ Function Invoke-ImageCustomization {
         Write-Log -message "Running '$installer $Arguments'"
         $Install = Start-Process -FilePath "$installer" -ArgumentList $Arguments -Wait -PassThru
         Write-Log -message "'$installer' exit code is [$($Install.ExitCode)]."
+        Write-Log -Message 'Removing Edge Desktop Shortcut'
+		$links = get-childitem -path "$env:SystemDrive\Users\Public\Desktop" -filter '*Edge.lnk' -file
+		ForEach ($link in $links) {
+			remove-item -path $link.FullName -Force -ErrorAction SilentlyContinue
+		}
         Write-Log -Message "Complete $Script:Section script section."
 
     }
@@ -1150,15 +1164,7 @@ Function Invoke-ImageCustomization {
 
     }
     #endregion
-    #region VDI Optimizations
-    If ($VDOptimization) {
-        $Script:Section = 'VDI Optimizations'
 
-        Write-Log -message "Starting '$Script:Section' script section."
-        Write-Log -message "Applying selective settings from the Virtual Desktop Optimization Tool available at https://github.com/The-Virtual-Desktop-Team/Virtual-Desktop-Optimization-Tool"
-
-    }
-    #endregion
     $Script:Section = 'Cleanup'
     Write-Log -message "Outputing Group Policy Results and Local GPO Backup to '$Script:LogDir\LGPO'"
     $null = Start-Process -FilePath gpresult.exe -ArgumentList "/h `"$Script:LogDir\LGPO\LocalGroupPolicy.html`"" -Wait
