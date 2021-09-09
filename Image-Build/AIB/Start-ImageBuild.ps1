@@ -39,7 +39,7 @@ param(
 
     [Parameter(Mandatory=$false,
     HelpMessage = 'Specify the name of the storage account. Storage account names must be between 3 and 24 characters in length and may contain numbers and lowercase letters only.')]
-    [string] $storageAccountName= '',
+    [string] $storageAccountName = '',
 
     [Parameter(Mandatory=$false,
     HelpMessage = 'Specify the blob container name. Container names can be between 3 and 63 characters long, start with a letter or number, and contain only lowercase letters, numbers, or the dash (-) character.')]
@@ -279,24 +279,24 @@ Write-Output "*** Complete: AIB Custom Role Assignment ***"
 #region Create Azure Storage Account and container for storing the customization scripts blobs.
 # Not documented on AIB, this used to internalize all Content that is used in image.
 Write-Output "*** Start: Image Customization Scripts Storage Account ***"
-$storageAccountName = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
-If (!($storageAccountName)) {
-    New-AzStorageAccount -Name $storageAccountName -ResourceGroupName $imageResourceGroup -Location (Get-AzResourceGroup -Name $imageResourceGroup).location -sku Standard_LRS -EnableHttpsTrafficOnly $true -MinimumTlsVersion TLS1_2
-    $storageAccountName = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
+$storageAccount = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
+If (!($storageAccount)) {
+    New-AzStorageAccount -Name $storageAccount -ResourceGroupName $imageResourceGroup -Location (Get-AzResourceGroup -Name $imageResourceGroup).location -sku Standard_LRS -EnableHttpsTrafficOnly $true -MinimumTlsVersion TLS1_2
+    $storageAccount = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
 }
 
-$storageAccountNameId = $storageAccountName.Id
-$storageAccountNameCtx = $storageAccountName.Context
+$storageAccountId = $storageAccount.Id
+$storageAccountCtx = $storageAccount.Context
 
-If (!(Get-AzStorageContainer -Name $containerName -Context $storageAccountNameCtx -ErrorAction SilentlyContinue)) {
-    New-AzStorageContainer -Name $containerName -Context $storageAccountNameCtx -Permission blob
+If (!(Get-AzStorageContainer -Name $containerName -Context $storageAccountCtx -ErrorAction SilentlyContinue)) {
+    New-AzStorageContainer -Name $containerName -Context $storageAccountCtx -Permission blob
 }
 
 Write-Output "Checking for 'Storage Blob Data Reader' Role Assignment for '$identityName'."
-If (!(Get-AzRoleAssignment -RoleDefinitionName 'Storage Blob Data Reader' -ObjectId $identityNamePrincipalId -Scope $storageAccountNameId -ErrorAction SilentlyContinue)) {
+If (!(Get-AzRoleAssignment -RoleDefinitionName 'Storage Blob Data Reader' -ObjectId $identityNamePrincipalId -Scope $storageAccountId -ErrorAction SilentlyContinue)) {
     #grant role definition to image builder service principal
     Write-Output 'Role assignment not found. Creating a new one.'
-    New-AzRoleAssignment -ObjectId $identityNamePrincipalId -RoleDefinitionName 'Storage Blob Data Reader' -Scope $storageAccountNameId -ErrorAction Stop
+    New-AzRoleAssignment -ObjectId $identityNamePrincipalId -RoleDefinitionName 'Storage Blob Data Reader' -Scope $storageAccountId -ErrorAction Stop
 }
 Else {
     Write-Output "'Storage Blob Data Reader' Role Assignment found."
@@ -320,7 +320,7 @@ Set-ContainerSASInFile -StorageAccount $storageAccountName -BlobContainer $conta
 ((Get-Content -path $tempFile -Raw) -replace '<StorageAccount>', $storageAccountName) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<Container>', $containerName) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<BuildDir>', $buildDir) | Set-Content -Path $tempFile
-Set-AzStorageBlobContent -File "$tempFile" -Container $containerName -Blob $imageMasterScript -Context $storageAccountNameCtx -Force
+Set-AzStorageBlobContent -File "$tempFile" -Container $containerName -Blob $imageMasterScript -Context $storageAccountCtx -Force
 Remove-Item -Path $tempFile -Force
 Write-Output "*** Complete: Image Customization Wrapper Script ***"
 
