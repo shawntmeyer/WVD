@@ -16,6 +16,7 @@
 <#
 .DESCRIPTION
    Create all the necessary resources to support Azure Image Builder and begin building a single image.
+   Based on https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop
 #>
 [CmdletBinding()]
 param(
@@ -184,7 +185,7 @@ If ($registerProviders) {
 #region create resource group
 Write-Output "*** Start: Resource Group ***"
 Write-Output "Checking for existing Resource Group."
-If (!(Get-AzResourceGroup -Name $imageResourceGroup -ErrorAction SilentlyContinue)) {
+If (-not (Get-AzResourceGroup -Name $imageResourceGroup -ErrorAction SilentlyContinue)) {
     Write-Output "Creating '$imageResourceGroup' resource group."
     New-AzResourceGroup -Name $imageResourceGroup -Location $location
 }
@@ -305,7 +306,7 @@ $tempFile = "$env:Temp\imageMasterScript.ps1"
 $script = Get-ChildItem -Path $PSScriptRoot -file -filter "$imageMasterScript" -Recurse
 Copy-Item -Path $($script.FullName) -Destination $tempFile -Force
 Set-ContainerSASInFile -StorageAccount $storageAccountName -BlobContainer $containerName -FilePath $tempFile
-((Get-Content -path $tempFile -Raw) -replace '<StorageAccount>', $scriptsStorageAccount) | Set-Content -Path $tempFile
+((Get-Content -path $tempFile -Raw) -replace '<StorageAccount>', $storageAccountName) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<Container>', $containerName) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<BuildDir>', $buildDir) | Set-Content -Path $tempFile
 Set-AzStorageBlobContent -File "$tempFile" -Container $containerName -Blob $imageMasterScript -Context $storageAccountNameCtx -Force
@@ -326,7 +327,7 @@ Compress-SubFolderContents -SourceFolderPath $customizationsFolder -DestinationF
 
 $InputObject = @{
     ResourceGroupName  = (Get-AzResource -Name $storageAccountName -ResourceType 'Microsoft.Storage/storageAccounts').ResourceGroupName
-    StorageAccountName = $scriptsStorageAccount
+    StorageAccountName = $storageAccountName
     contentDirectories = $zipDestinationFolder
     targetContainer    = $containerName
 }
@@ -372,7 +373,7 @@ Copy-Item -Path $imageTemplateFilePath -Destination $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<RGName>', $imageResourceGroup) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<Region>', $location) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<RunOutputName>', $runOutputName) | Set-Content -Path $tempFile
-((Get-Content -path $tempFile -Raw) -replace '<StorageAccount>', $scriptsStorageAccount) | Set-Content -Path $tempFile
+((Get-Content -path $tempFile -Raw) -replace '<StorageAccount>', $storageAccountName) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<Container>', $containerName) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<MasterScriptName>', $imageMasterScript) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<ImageDefName>', $imageDefName) | Set-Content -Path $tempFile
