@@ -17,6 +17,7 @@
 .DESCRIPTION
    Create all the necessary resources to support Azure Image Builder and begin building a single image.
    Based on https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop
+   # added a bunch of individual article section references.
 #>
 [CmdletBinding()]
 param(
@@ -108,7 +109,31 @@ ForEach ($file in $functions) {
 Write-Output "*** Complete: Loading Supporting Functions ***"
 #endregion
 
+#region Azure Logon
+Write-Output "*** Start: Azure Logon Context ***"
+# Get Context
+$currentAzContext = Get-AzContext
+If (!$currentAzContext) {
+    Write-Error "You must be logged into Azure before running this script."
+    Write-Output "* You can logon to Azure in multiple ways. One Simple way is to use the 'Connect-AzAccount' cmdlet"
+    Write-Output "and enter credentials in the new browser window that pops up."
+    Write-Output "* Another way is to set a variable `"$credential = get-credential`" and enter your credentials at the prompt."
+    Write-Output "Then use `"Login-AzAccount -credential $credential`" to overcome issues with multiple accounts."
+    Exit
+}
+# your subscription, this will get your current subscription
+If ($subscriptionID -eq "") {
+    $subscriptionID=$currentAzContext.Subscription.Id
+}
+Else {
+    Set-AzContext -Subscription $subscriptionID
+}
+Write-Output "*** Complete: Azure Logon Context ***"
+#endregion
+
 #region Install/Import Required Modules
+# https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop#set-up-environment-and-variables
+
 Write-Output "*** Start: Installing and Importing Required Powershell Modules ***"
 
 Write-Output "Checking to see if minimum version of 'Az' module is installed."
@@ -152,29 +177,8 @@ Else {
 Write-Output "*** Complete: Installing and Importing Required Powershell Modules ***"
 #endregion
 
-#region Azure Logon
-Write-Output "*** Start: Azure Logon Context ***"
-# Get Context
-$currentAzContext = Get-AzContext
-If (!$currentAzContext) {
-    Write-Error "You must be logged into Azure before running this script."
-    Write-Output "* You can logon to Azure in multiple ways. One Simple way is to use the 'Connect-AzAccount' cmdlet"
-    Write-Output "and enter credentials in the new browser window that pops up."
-    Write-Output "* Another way is to set a variable '$credential = get-credential' and enter your credentials at the prompt."
-    Write-Output "Then use 'Login-AzAccount -credential $credential' to overcome issues with multiple accounts."
-    Exit
-}
-# your subscription, this will get your current subscription
-If ($subscriptionID -eq "") {
-    $subscriptionID=$currentAzContext.Subscription.Id
-}
-Else {
-    Set-AzContext -Subscription $subscriptionID
-}
-Write-Output "*** Complete: Azure Logon Context ***"
-#endregion
-
 #region Provider Registration
+# https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop#prerequisites
 If ($registerProviders) {
     Get-AzResourceProvider -ProviderNamespace Microsoft.Compute, Microsoft.KeyVault, Microsoft.Storage, Microsoft.VirtualMachineImages, Microsoft.Network |
     Where-Object RegistrationState -ne Registered |
@@ -183,6 +187,7 @@ If ($registerProviders) {
 #endregion
 
 #region create resource group
+# https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop#set-up-environment-and-variables
 Write-Output "*** Start: Resource Group ***"
 Write-Output "Checking for existing Resource Group."
 If (-not (Get-AzResourceGroup -Name $imageResourceGroup -ErrorAction SilentlyContinue)) {
@@ -196,6 +201,7 @@ Write-Output "*** Complete: Resource Group ***"
 #endregion
 
 #region Create User Assigned Identity
+# https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop#permissions-user-identity-and-role
 
 Write-Output "*** Start: User Assigned Identity ***"
 Write-Output "Checking for User Assigned Identity '$identityName' in '$imageResourceGroup' resource group."
@@ -223,7 +229,8 @@ Write-Output "*** Complete: User Assigned Identity ***"
 #endregion
 
 #region Custom Role Assignment
-
+# https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop#permissions-user-identity-and-role
+# Role Definition Source found @ "https://raw.githubusercontent.com/azure/azvmimagebuilder/master/solutions/12_Creating_AIB_Security_Roles/aibRoleImageCreation.json"
 Write-Output "*** Start: AIB Custom Role Assignment ***"
 Write-Output "Checking for custom Azure Role definition named '$imageRoleDefName'."
 If (!(Get-AzRoleDefinition -Name $imageRoleDefName -ErrorAction SilentlyContinue)) {
@@ -270,7 +277,7 @@ Write-Output "*** Complete: AIB Custom Role Assignment ***"
 #endregion
 
 #region Create Azure Storage Account and container for storing the customization scripts blobs.
-
+# Not documented on AIB, this used to internalize all Content that is used in image.
 Write-Output "*** Start: Image Customization Scripts Storage Account ***"
 $storageAccountName = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
 If (!($storageAccountName)) {
@@ -300,6 +307,10 @@ Write-Output "*** Complete: Image Customization Scripts Storage Account ***"
 
 #region Update Image Customization Wrapper Script and upload to storage account
 
+# this is a custom master script. The idea is to access this script from the image template as a script customizer but then this script calls
+# all other scripts and installers. To call other scripts via Uri you have to supply a SAS token since it no longer supports the native Storage
+# Blob Data Reader Role for access.
+
 Write-Output "*** Start: Image Customization Wrapper Script ***"
 $tempFile = "$env:Temp\imageMasterScript.ps1"
 # Find Image Master Script in script directory.
@@ -316,6 +327,9 @@ Write-Output "*** Complete: Image Customization Wrapper Script ***"
 #endregion
 
 #region Upload other Customization Scripts
+
+# Also not documented in AIB documentation. This is custom code to zip each subdirectory under the customizations directory
+# and upload the zip files to the storage accounts as blobs in the specified container.
 
 Write-Output "*** Start: Image Customization Scripts ***"
 $zipDestinationFolder = "$env:Temp\ZipFiles"
@@ -338,6 +352,7 @@ Write-Output "*** Complete: Image Customization Scripts ***"
 #endregion
 
 #region Create the Shared Image Gallery and Image Definition
+# https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop#create-the-shared-image-gallery
 
 Write-Output "*** Start: Shared Image Gallery ***"
 # create gallery
@@ -363,6 +378,10 @@ Write-Output "*** Complete: Shared Image Gallery ***"
 #endregion
 
 #Region Configure the Image Template
+# https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop#configure-the-image-template
+# https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop#download-template-and-configure
+# Instead of downloading the template from GitHub, the template is available in this directory. We create a temporary file
+# so we can update the variables for your environment dynamically.
 
 Write-Output "*** Start: Azure Image Builder Template ***"
 Write-Output "Updating Azure Image Builder ARM template with variables."
@@ -388,6 +407,9 @@ Write-Output "*** Complete: Azure Image Builder Template ***"
 #endregion
 
 #Region Submit the template to AIB
+# https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop#submit-the-template
+# We must first delete the template because you can not update an existing template. This allows us to dynamically update
+# our template as we manage the images going forward.
 
 Write-Output "*** Start: AIB Template Submission to Service ***"
 Write-Output "Checking for existing image builder template named '$imageTemplateName'."
@@ -405,6 +427,7 @@ Write-Output "*** Complete: AIB Template Submission to Service ***"
 #endregion
 
 #Region Invoke the Deployment
+# https://docs.microsoft.com/en-us/azure/virtual-machines/windows/image-builder-virtual-desktop#build-the-image
 
 Write-Output "*** Start: Invoke AIB Image Build ***"
 Write-Output "Pausing 5 secs to ensure that template is ready."
