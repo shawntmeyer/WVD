@@ -1,30 +1,95 @@
-#region Setup Variables
-# location
-$location = "EastUS"
-# resource group
-$imageResourceGroup = "RG-AzureImageBuilder"
-# storageAccount
-$scriptsStorageAccount = "azimgbldsrcs"
-$containerName = "scripts"
-# image customization master script
-$imageMasterScript = "Invoke-AIBImageCustomization.ps1"
-# AIB Image template
-$imageTemplateFilePath = "AzureImageBuilderTemplate.json"
-# Image Template Name, recommend keep it the same as the image definition name in the Shared Image Gallery.
-$imageTemplateName = "Windows10MS"
+# ***************************************************************************
+#
+# Purpose: Start Azure Image Builder Process
+#
+# ------------- DISCLAIMER -------------------------------------------------
+# This script code is provided as is with no guarantee or waranty concerning
+# the usability or impact on systems and may be used, distributed, and
+# modified in any way provided the parties agree and acknowledge the 
+# Microsoft or Microsoft Partners have neither accountabilty or 
+# responsibility for results produced by use of this script.
+#
+# Microsoft will not provide any support through any means.
+# ------------- DISCLAIMER -------------------------------------------------
+#
+# ***************************************************************************
+<#
+.DESCRIPTION
+   Create all the necessary resources to support Azure Image Builder and begin building a single image.
+#>
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Determine if Resource Providers should be registered. Only needs to run once per subscription.')]
+    [boolean] $registerProviders = $true,
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify SubscriptionID if you have more than one subscription.')]
+    [string] $subscriptionID = "",
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify Region where resources will be created.')]
+    [string] $location = 'EastUS2',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify Image Management Resource Group Name. Will contain Storage Account, Shared Image Gallery, Image Definitions, Image Versions, and Image Builder Templates')]
+    [string] $imageResourceGroup = '',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the name of the storage account. Storage account names must be between 3 and 24 characters in length and may contain numbers and lowercase letters only.')]
+    [string] $storageAccountName= '',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the blob container name. Container names can be between 3 and 63 characters long, start with a letter or number, and contain only lowercase letters, numbers, or the dash (-) character.')]
+    [string] $containerName = '',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the name of the master customization script. Must be same directory as this script.')]
+    [string] $imageMasterScript = 'Invoke-AIBImageCustomization.ps1',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the file name of the Image Builder Template.')]
+    [string] $imageTemplateFilePath = 'AzureImageBuilderTemplate.json',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the name of the Image Template. Only alphanumeric characters (0-9, a-z, and A-Z) and the hyphen (-) are supported.')]
+    [string] $imageTemplateName = 'Windows10MS',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Name of custom Image Builder RBAC role.')]
+    [string] $imageRoleDefName = 'Azure Image Builder Custom Role',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the name of the Azure Image Builder User Assigned Identity. Only alphanumeric characters (0-9, a-z, and A-Z) and the hyphen (-) are supported.')]
+    [string] $identityName = 'AIBUserIdentity',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the name of the Shared Image Gallery. Allowed characters for Gallery name are uppercase or lowercase letters, digits, dots, and periods.')]
+    [string] $sigGalleryName = '',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the Image Definition Name. Allowed characters for Image Definition Name are uppercase or lowercase letters, digits, dots, and periods.')]
+    [string] $imageDefName = 'Windows10MS',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the image Publisher. Allowed characters for Image Publisher are uppercase or lowercase letters, digits, periods, and dashes.')]
+    [string] $imagePublisher = 'NRC',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the name of the Shared Image Gallery. Allowed characters for Gallery name are uppercase or lowercase letters, digits, periods, and dashes.')]
+    [string] $imageOffer = 'Windows-10',
+
+    [Parameter(Mandatory=$false,
+    HelpMessage = 'Specify the name of the Shared Image Gallery. Allowed characters for Gallery name are uppercase or lowercase letters, digits, periods, and dashes.')]
+    [string] $imageSku = 'EVD'
+)
+#region Variables
+
 # distribution properties object name (runOutput), i.e. this gives you the properties of the managed image on completion
 # Recommend that you keep it same as image template name.
-$runOutputName = "Windows10MS"
-# Custom Role and User Assigned Identity
-$imageRoleDefName = "Azure Image Builder Custom Role"
-$identityName = "AIBUserIdentity"
+$runOutputName = $imageTemplateName
+# Custom Role Template
 $aibCustomRoleTemplate = "aibCustomRoleTemplate.json"
-# Shared Image Gallery
-$sigGalleryName = "WVDSharedImages"
-$imageDefName = "Windows10MS"
-$imagePub = "WindowsDeploymentGuy"
-$imageOffer = "Windows-10"
-$imageSku = "EVD"
 # Paths in repo
 $customizationsFolder = "$PSScriptRoot\..\Customizations"
 $functionsFolder = "$PSScriptRoot\Functions"
@@ -99,8 +164,21 @@ If (!$currentAzContext) {
     Exit
 }
 # your subscription, this will get your current subscription
-$subscriptionID=$currentAzContext.Subscription.Id
+If ($subscriptionID -eq "") {
+    $subscriptionID=$currentAzContext.Subscription.Id
+}
+Else {
+    Set-AzContext -Subscription $subscriptionID
+}
 Write-Output "*** Complete: Azure Logon Context ***"
+#endregion
+
+#region Provider Registration
+If ($registerProviders) {
+    Get-AzResourceProvider -ProviderNamespace Microsoft.Compute, Microsoft.KeyVault, Microsoft.Storage, Microsoft.VirtualMachineImages, Microsoft.Network |
+    Where-Object RegistrationState -ne Registered |
+        Register-AzResourceProvider
+}
 #endregion
 
 #region create resource group
@@ -193,24 +271,24 @@ Write-Output "*** Complete: AIB Custom Role Assignment ***"
 #region Create Azure Storage Account and container for storing the customization scripts blobs.
 
 Write-Output "*** Start: Image Customization Scripts Storage Account ***"
-$storageAccount = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $scriptsStorageAccount -ErrorAction SilentlyContinue
-If (!($storageAccount)) {
-    New-AzStorageAccount -Name $scriptsStorageAccount -ResourceGroupName $imageResourceGroup -Location (Get-AzResourceGroup -Name $imageResourceGroup).location -sku Standard_LRS -EnableHttpsTrafficOnly $true -MinimumTlsVersion TLS1_2
-    $storageAccount = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $scriptsStorageAccount -ErrorAction SilentlyContinue
+$storageAccountName = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
+If (!($storageAccountName)) {
+    New-AzStorageAccount -Name $storageAccountName -ResourceGroupName $imageResourceGroup -Location (Get-AzResourceGroup -Name $imageResourceGroup).location -sku Standard_LRS -EnableHttpsTrafficOnly $true -MinimumTlsVersion TLS1_2
+    $storageAccountName = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
 }
 
-$storageAccountId = $storageAccount.Id
-$storageAccountCtx = $storageAccount.Context
+$storageAccountNameId = $storageAccountName.Id
+$storageAccountNameCtx = $storageAccountName.Context
 
-If (!(Get-AzStorageContainer -Name $containerName -Context $storageAccountCtx -ErrorAction SilentlyContinue)) {
-    New-AzStorageContainer -Name $containerName -Context $storageAccountCtx -Permission blob
+If (!(Get-AzStorageContainer -Name $containerName -Context $storageAccountNameCtx -ErrorAction SilentlyContinue)) {
+    New-AzStorageContainer -Name $containerName -Context $storageAccountNameCtx -Permission blob
 }
 
 Write-Output "Checking for 'Storage Blob Data Reader' Role Assignment for '$identityName'."
-If (!(Get-AzRoleAssignment -RoleDefinitionName 'Storage Blob Data Reader' -ObjectId $identityNamePrincipalId -Scope $StorageAccountId -ErrorAction SilentlyContinue)) {
+If (!(Get-AzRoleAssignment -RoleDefinitionName 'Storage Blob Data Reader' -ObjectId $identityNamePrincipalId -Scope $storageAccountNameId -ErrorAction SilentlyContinue)) {
     #grant role definition to image builder service principal
     Write-Output 'Role assignment not found. Creating a new one.'
-    New-AzRoleAssignment -ObjectId $identityNamePrincipalId -RoleDefinitionName 'Storage Blob Data Reader' -Scope $StorageAccountId -ErrorAction Stop
+    New-AzRoleAssignment -ObjectId $identityNamePrincipalId -RoleDefinitionName 'Storage Blob Data Reader' -Scope $storageAccountNameId -ErrorAction Stop
 }
 Else {
     Write-Output "'Storage Blob Data Reader' Role Assignment found."
@@ -223,12 +301,14 @@ Write-Output "*** Complete: Image Customization Scripts Storage Account ***"
 
 Write-Output "*** Start: Image Customization Wrapper Script ***"
 $tempFile = "$env:Temp\imageMasterScript.ps1"
-Copy-Item -Path "$PSScriptRoot\$imageMasterScript" -Destination $tempFile -Force
-Set-ContainerSASInFile -StorageAccount $scriptsStorageAccount -BlobContainer $containerName -FilePath $tempFile
+# Find Image Master Script in script directory.
+$script = Get-ChildItem -Path $PSScriptRoot -file -filter "$imageMasterScript" -Recurse
+Copy-Item -Path $($script.FullName) -Destination $tempFile -Force
+Set-ContainerSASInFile -StorageAccount $storageAccountName -BlobContainer $containerName -FilePath $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<StorageAccount>', $scriptsStorageAccount) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<Container>', $containerName) | Set-Content -Path $tempFile
 ((Get-Content -path $tempFile -Raw) -replace '<BuildDir>', $buildDir) | Set-Content -Path $tempFile
-Set-AzStorageBlobContent -File "$tempFile" -Container $containerName -Blob $imageMasterScript -Context $storageAccountCtx -Force
+Set-AzStorageBlobContent -File "$tempFile" -Container $containerName -Blob $imageMasterScript -Context $storageAccountNameCtx -Force
 Remove-Item -Path $tempFile -Force
 Write-Output "*** Complete: Image Customization Wrapper Script ***"
 
@@ -245,7 +325,7 @@ Write-Output "Compressing subfolders under '$customizationsFolder' into zip file
 Compress-SubFolderContents -SourceFolderPath $customizationsFolder -DestinationFolderPath "$zipDestinationFolder"
 
 $InputObject = @{
-    ResourceGroupName  = (Get-AzResource -Name $scriptsStorageAccount -ResourceType 'Microsoft.Storage/storageAccounts').ResourceGroupName
+    ResourceGroupName  = (Get-AzResource -Name $storageAccountName -ResourceType 'Microsoft.Storage/storageAccounts').ResourceGroupName
     StorageAccountName = $scriptsStorageAccount
     contentDirectories = $zipDestinationFolder
     targetContainer    = $containerName
@@ -272,7 +352,7 @@ Else {
 Write-Output "Checking for Image Definition named '$imageDefName' in the shared image gallery."
 If (!(Get-AzGalleryImageDefinition -GalleryName $sigGalleryName -ResourceGroupName $imageResourceGroup -Name $imageDefName -ErrorAction SilentlyContinue)) {
     Write-Output 'Image Definition not found. Now creating it.'
-    New-AzGalleryImageDefinition -GalleryName $sigGalleryName -ResourceGroupName $imageResourceGroup -Location $location -Name $imageDefName -OsState generalized -OsType Windows -Publisher $imagePub -Offer $imageOffer -Sku $imageSku -ErrorAction Stop
+    New-AzGalleryImageDefinition -GalleryName $sigGalleryName -ResourceGroupName $imageResourceGroup -Location $location -Name $imageDefName -OsState generalized -OsType Windows -Publisher $imagePublisher -Offer $imageOffer -Sku $imageSku -ErrorAction Stop
 }
 Else {
     write-output "Image Definition Found."
