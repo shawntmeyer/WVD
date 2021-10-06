@@ -74,15 +74,15 @@ param(
     [string] $imageDefName = 'Windows10MS',
 
     [Parameter(Mandatory=$false,
-    HelpMessage = 'Specify the image Publisher. Allowed characters for Image Publisher are uppercase or lowercase letters, digits, periods, and dashes.')]
+    HelpMessage = "image definition publisher. The image definition publisher can contain only letters, numbers, hyphens, periods, and underscores. The publisher can't end with a period.")]
     [string] $imagePublisher = 'NRC',
 
     [Parameter(Mandatory=$false,
-    HelpMessage = 'Specify the name of the Shared Image Gallery. Allowed characters for Gallery name are uppercase or lowercase letters, digits, periods, and dashes.')]
+    HelpMessage = "image definition offer. The image definition offer can contain only letters, numbers, hyphens, periods, and underscores. The offer can't end with a period.")]
     [string] $imageOffer = 'Windows-10',
 
     [Parameter(Mandatory=$false,
-    HelpMessage = 'Specify the name of the Shared Image Gallery. Allowed characters for Gallery name are uppercase or lowercase letters, digits, periods, and dashes.')]
+    HelpMessage = "image definition sku. The image definition sku can contain only letters, numbers, hyphens, periods, and underscores. The sku can't end with a period.")]
     [string] $imageSku = 'EVD'
 )
 #region Variables
@@ -421,9 +421,17 @@ Else {
     Write-Output "Existing template not found."
 }
 Write-Output "Submitting Azure Image Builder template to service."
-New-AzResourceGroupDeployment -ResourceGroupName $imageResourceGroup -TemplateFile $tempFile -api-version "2020-02-14" -imageTemplateName $imageTemplateName -svclocation $location -ErrorAction Stop
-Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
-Write-Output "*** Complete: AIB Template Submission to Service ***"
+Try {
+    New-AzResourceGroupDeployment -ResourceGroupName $imageResourceGroup -TemplateFile $tempFile -api-version "2020-02-14" -imageTemplateName $imageTemplateName -svclocation $location -ErrorAction Stop
+    Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+    Write-Output "*** Complete: AIB Template Submission to Service ***"
+}
+Catch {
+    $getStatus=$(Get-AzImageBuilderTemplate -ResourceGroupName $imageResourceGroup -Name $imageTemplateName)
+    $getStatus.ProvisioningErrorCode 
+    $getStatus.ProvisioningErrorMessage
+}
+
 #endregion
 
 #Region Invoke the Deployment

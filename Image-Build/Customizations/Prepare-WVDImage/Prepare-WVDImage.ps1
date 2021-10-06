@@ -72,7 +72,7 @@ Param
 
     #Install Microsoft Edge Chromium. Update $EdgeURL variable to point to latest version as needed.
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
-    [bool]$EdgeInstall = $true,
+    [bool]$EdgeInstall = $false,
 
     #Disable Windows Update
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
