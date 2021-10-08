@@ -31,7 +31,7 @@ param(
 
     [Parameter(Mandatory=$false,
     HelpMessage = 'Specify Region where resources will be created.')]
-    [string] $location = 'EastUS2',
+    [string] $location = 'EastUS',
 
     [Parameter(Mandatory=$false,
     HelpMessage = 'Specify Image Management Resource Group Name. Will contain Storage Account, Shared Image Gallery, Image Definitions, Image Versions, and Image Builder Templates')]
@@ -65,17 +65,17 @@ param(
     HelpMessage = 'Specify the name of the Azure Image Builder User Assigned Identity. Only alphanumeric characters (0-9, a-z, and A-Z) and the hyphen (-) are supported.')]
     [string] $identityName = 'AIBUserIdentity',
 
-    [Parameter(Mandatory=$false,
+    [Parameter(Mandatory=$true,
     HelpMessage = 'Specify the name of the Shared Image Gallery. Allowed characters for Gallery name are uppercase or lowercase letters, digits, dots, and periods.')]
-    [string] $sigGalleryName = '',
+    [string] $sigGalleryName,
 
-    [Parameter(Mandatory=$false,
+    [Parameter(Mandatory=$true,
     HelpMessage = 'Specify the Image Definition Name. Allowed characters for Image Definition Name are uppercase or lowercase letters, digits, dots, and periods.')]
-    [string] $imageDefName = 'Windows10MS',
+    [string] $imageDefName,
 
     [Parameter(Mandatory=$false,
     HelpMessage = "image definition publisher. The image definition publisher can contain only letters, numbers, hyphens, periods, and underscores. The publisher can't end with a period.")]
-    [string] $imagePublisher = 'NRC',
+    [string] $imagePublisher = 'WindowsDeploymentGuy',
 
     [Parameter(Mandatory=$false,
     HelpMessage = "image definition offer. The image definition offer can contain only letters, numbers, hyphens, periods, and underscores. The offer can't end with a period.")]
@@ -281,7 +281,7 @@ Write-Output "*** Complete: AIB Custom Role Assignment ***"
 Write-Output "*** Start: Image Customization Scripts Storage Account ***"
 $storageAccount = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
 If (!($storageAccount)) {
-    New-AzStorageAccount -Name $storageAccount -ResourceGroupName $imageResourceGroup -Location (Get-AzResourceGroup -Name $imageResourceGroup).location -sku Standard_LRS -EnableHttpsTrafficOnly $true -MinimumTlsVersion TLS1_2
+    New-AzStorageAccount -Name $storageAccountName -ResourceGroupName $imageResourceGroup -Location (Get-AzResourceGroup -Name $imageResourceGroup).location -sku Standard_LRS -EnableHttpsTrafficOnly $true -MinimumTlsVersion TLS1_2
     $storageAccount = Get-AzStorageAccount -ResourceGroupName $imageResourceGroup -Name $storageAccountName -ErrorAction SilentlyContinue
 }
 
