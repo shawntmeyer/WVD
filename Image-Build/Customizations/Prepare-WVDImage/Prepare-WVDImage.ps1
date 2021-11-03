@@ -31,13 +31,9 @@ Param
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
     [bool]$MarketPlaceSource = $true,
 
-    #Office 365 Already Installed
-    [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
-    [bool]$Office365Installed = $true,
-
     #install Office 365
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
-    [bool]$InstallOffice365 = $false,
+    [bool]$Office365Install = $true,
 
     # Outlook Email Cached Sync Time, Microsoft Recommendation is 1 month.
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
@@ -56,7 +52,7 @@ Param
 
     # Install OneDrive per-machine
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
-    [bool]$InstallOneDrive = $false,
+    [bool]$OneDriveInstall = $true,
 
     #Azure Active Directory TenantID
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
@@ -64,7 +60,7 @@ Param
 
     # Install FSLogix Agent
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
-    [bool]$InstallFSLogix = $true,
+    [bool]$FSLogixInstall = $true,
 
     #UNC Paths to FSLogix Profile Disks. Enclose each value in double quotes seperated by a ',' (ex: "\\primary\fslogix","\\failover\fslogix")
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
@@ -72,11 +68,11 @@ Param
 
     #Install Microsoft Teams in the Per-Machine configuration. Update the $TeamsURL variable to point to the latest version as needed.
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
-    [bool]$InstallTeams = $false,
+    [bool]$TeamsInstall = $true,
 
     #Install Microsoft Edge Chromium. Update $EdgeURL variable to point to latest version as needed.
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
-    [bool]$InstallEdge = $false,
+    [bool]$EdgeInstall = $false,
 
     #Disable Windows Update
     [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
@@ -569,14 +565,10 @@ Function Invoke-ImageCustomization {
         #Determine if Azure MarketPlace Image. If it is then do not complete the generic VHD image prep steps.
         [Parameter(Mandatory = $false)]
         [bool]$MarketPlaceSource,
-        
-        #Office 365 Already Installed
-        [Parameter(ParameterSetName = 'Automation', Mandatory = $false)]
-        [bool]$Office365Installed = $true,
 
         #install Office 365
         [Parameter(Mandatory = $false)]
-        [bool]$InstallOffice365,
+        [bool]$Office365Install,
 
         # Outlook Email Cached Sync Time
         [Parameter(Mandatory = $false)]
@@ -595,27 +587,27 @@ Function Invoke-ImageCustomization {
 
         # Install OneDrive per-machine
         [Parameter(Mandatory = $false)]
-        [bool]$InstallOneDrive,
+        [bool]$OneDriveInstall,
 
-        # Azure Active Directory TenantID
+        #Azure Active Directory TenantID
         [Parameter(Mandatory = $false)]
         [string]$AADTenantID,
 
         # Install FSLogix Agent
         [Parameter(Mandatory = $false)]
-        [bool]$InstallFSLogix,
+        [bool]$FSLogixInstall,
 
-        # UNC Paths to FSLogix Profile Disks. Enclose each value in double quotes seperated by a ',' (ex: "\\primary\fslogix","\\failover\fslogix")
+        #UNC Paths to FSLogix Profile Disks. Enclose each value in double quotes seperated by a ',' (ex: "\\primary\fslogix","\\failover\fslogix")
         [Parameter(Mandatory = $false)]
         $FSLogixVHDPath,
 
-        # Install Microsoft Teams in the Per-Machine configuration. Update the $TeamsURL variable to point to the latest version as needed.
+        #Install Microsoft Teams in the Per-Machine configuration. Update the $TeamsURL variable to point to the latest version as needed.
         [Parameter(Mandatory = $false)]
-        [bool]$InstallTeams,
+        [bool]$TeamsInstall,
 
-        # Install Microsoft Edge Chromium. Update $EdgeURL variable to point to latest version as needed.
+        #Install Microsoft Edge Chromium. Update $EdgeURL variable to point to latest version as needed.
         [Parameter(Mandatory = $false)]
-        [bool]$InstallEdge,
+        [bool]$EdgeInstall,
 
         #Disable Windows Update
         [Parameter(Mandatory = $false)]
@@ -639,7 +631,7 @@ Function Invoke-ImageCustomization {
 
     #region Office365
 
-    If ( $InstallOffice365 ) {
+    If ( $Office365Install ) {
         $Ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/install-office-on-wvd-master-image"
         $Script:Section = 'Office 365'
 
@@ -735,7 +727,7 @@ Function Invoke-ImageCustomization {
     #endregion Office 365
 
     #region OneDrive
-    If ( $InstallOneDrive ) {
+    If ( $OneDriveInstall ) {
         $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/install-office-on-wvd-master-image"
 
         $Script:Section = 'OneDrive'
@@ -805,7 +797,7 @@ Function Invoke-ImageCustomization {
 
     #region Teams
 
-    If ( $InstallTeams ) {
+    If ( $TeamsInstall ) {
         # Download and install Microsoft Teams 
         $ref = "https://docs.microsoft.com/en-us/azure/virtual-desktop/teams-on-wvd"
         # Link to downloads: https://docs.microsoft.com/en-us/microsoftteams/teams-for-vdi#deploy-the-teams-desktop-app-to-the-vm
@@ -885,7 +877,7 @@ Function Invoke-ImageCustomization {
 
     #region FSLogix Agent
 
-    If ($InstallFSLogix) {
+    If ($FSLogixInstall) {
         $Script:Section = 'FSLogix Agent'
         Write-Log -message "Starting FSLogix Agent Installation and Configuration."
         Write-Log -message "Downloading FSLogix Agent from Microsoft."
@@ -937,7 +929,7 @@ Function Invoke-ImageCustomization {
     #endregion FSLogix Agent
 
     #region Edge Enterprise
-    If ( $InstallEdge ) {
+    If ( $EdgeInstall ) {
 
         $Script:Section = 'Edge Enterprise'
         $ref = 'https://docs.microsoft.com/en-us/deployedge/deploy-edge-with-configuration-manager'
@@ -1008,7 +1000,7 @@ Function Invoke-ImageCustomization {
         Write-Log -message "Setting 'SpecialRoamingOverride' Registry Key per 'https://docs.microsoft.com/en-us/windows-server/storage/folder-redirection/deploy-roaming-user-profiles#step-7-optionally-specify-a-start-layout-for-windows-10-pcs'"
         Set-RegistryValue -Key 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer' -Name 'SpecialRoamingOverrideAllowed' -Value '1' -Type 'DWord'
         Write-Log -message "Replacing default Start Menu layout with custom layoutmodification file due to app removal."
-        If ($Office365Installed) {
+        If ($Office365Install) {
             $LayoutFile = "$PSScriptRoot\StartMenu\StartLayout-Office.xml"
             If (Test-Path $LayoutFile) {
                 Write-Log -Message "Importing new Start Menu Layout with Office Group."
@@ -1225,34 +1217,34 @@ If ($DisplayForm) {
     $Execute.Font = 'Microsoft Sans Serif,18,style=Bold'
     $Execute.ForeColor = "#ffffff"
     $Execute.Add_Click( {
-        $Office365Install = $InstallOffice365.Checked
-        $EmailCacheTime = $EmailCacheMonths.text
-        $CalendarSync = $CalendarSyncMode.text
-        $CalendarSyncMonths = $CalSyncTime.text
-        $InstallOneDrive = $InstallOneDrive.Checked
-        If ($TenantID.text -ne '') {
-            $AADTenantID = $TenantID.text
-        }
-        $InstallFSLogix = $InstallFSLogix.Checked
-        If ($VHDPath.text -ne '') {
-            $FSLogixVHDPath = $VHDPath.text
-        }
-        $InstallTeams = $InstallTeams.Checked
-        $InstallEdge = $InstallEdge.Checked
-        $DisableUpdates = $DisableWU.Checked
-        $CleanupImage = $RunCleanMgr.Checked
-        $RemoveApps = $AppRemove.Checked
-        $WVDGoldenImagePrep.Close()
-        Invoke-ImageCustomization `
-            -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
-            -OneDriveInstall $InstallOneDrive -AADTenantID $AADTenantID `
-            -FSLogixInstall $InstallFSLogix -FSLogixVHDPath $FSLogixVHDPath `
-            -TeamsInstall $InstallTeams `
-            -EdgeInstall $InstallEdge `
-            -DisableUpdates $DisableUpdates `
-            -CleanupImage $CleanupImage `
-            -RemoveApps $RemoveApps
-    } )
+            $Office365Install = $InstallOffice365.Checked
+            $EmailCacheTime = $EmailCacheMonths.text
+            $CalendarSync = $CalendarSyncMode.text
+            $CalendarSyncMonths = $CalSyncTime.text
+            $OneDriveInstall = $InstallOneDrive.Checked
+            If ($TenantID.text -ne '') {
+                $AADTenantID = $TenantID.text
+            }
+            $FSLogixInstall = $InstallFSLogix.Checked
+            If ($VHDPath.text -ne '') {
+                $FSLogixVHDPath = $VHDPath.text
+            }
+            $TeamsInstall = $InstallTeams.Checked
+            $EdgeInstall = $InstallEdge.Checked
+            $DisableUpdates = $DisableWU.Checked
+            $CleanupImage = $RunCleanMgr.Checked
+            $RemoveApps = $AppRemove.Checked
+            $WVDGoldenImagePrep.Close()
+            Invoke-ImageCustomization `
+                -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
+                -OneDriveInstall $OneDriveInstall -AADTenantID $AADTenantID `
+                -FSLogixInstall $FSLogixInstall -FSLogixVHDPath $FSLogixVHDPath `
+                -TeamsInstall $TeamsInstall `
+                -EdgeInstall $EdgeInstall `
+                -DisableUpdates $DisableUpdates `
+                -CleanupImage $CleanupImage `
+                -RemoveApps $RemoveApps
+        })
 
     $ScriptTitle = New-Object system.Windows.Forms.Label
     $ScriptTitle.text = "WVD Golden Image Preparation"
@@ -1442,10 +1434,10 @@ Else {
     Invoke-ImageCustomization `
         -MarketPlaceSource $MarketPlaceSource `
         -Office365Install $Office365Install -EmailCacheTime $EmailCacheTime -CalendarSync $CalendarSync -CalendarSyncMonths $CalendarSyncMonths `
-        -OneDriveInstall $InstallOneDrive -AADTenantID $AADTenantID `
-        -FSLogixInstall $InstallFSLogix -FSLogixVHDPath $FSLogixVHDPath `
-        -TeamsInstall $InstallTeams `
-        -EdgeInstall $InstallEdge `
+        -OneDriveInstall $OneDriveInstall -AADTenantID $AADTenantID `
+        -FSLogixInstall $FSLogixInstall -FSLogixVHDPath $FSLogixVHDPath `
+        -TeamsInstall $TeamsInstall `
+        -EdgeInstall $EdgeInstall `
         -DisableUpdates $DisableUpdates `
         -CleanupImage $CleanupImage `
         -RemoveApps $RemoveApps
